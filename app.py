@@ -141,6 +141,8 @@ GOLD_SOFT: Final[str] = "#E8CC6B"
 OBSIDIAN: Final[str] = "#090B10"
 NEON: Final[str] = "#34D07A"
 AMBER: Final[str] = "#F0A93B"
+LIME: Final[str] = "rgba(144,238,144,1)"
+LIME_TEXT: Final[str] = "rgba(200,255,200,1)"
 
 RGB_GOLD_STOPS: Final[tuple[tuple[int, int, int], ...]] = tuple((int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)) for h in GOLD_STOPS)
 RGB_GOLD: Final[tuple[int, int, int]] = (212, 175, 55)
@@ -772,18 +774,18 @@ def inject_theme(intro: bool = False) -> None:
     .tier-rows {{ font-size:.60rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
 
     /* ========================================================
-       THE BULLETPROOF WHITE SEATING BOX & HORIZONTAL SCROLL HACK
+       THE BULLETPROOF WHITE SEATING BOX & HORIZONTAL MAP HACK
        ======================================================== */
     
     /* 1. The White Box wrapper */
-    div[class*="st-key-WHITE_MAP_BOX"] {{
+    div.st-key-WHITE_MAP_BOX {{
         background-color: #FFFFFF !important;
         border-radius: 20px !important;
         padding: 20px 10px !important;
         box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
         margin-bottom: 20px !important;
     }}
-    div[class*="st-key-WHITE_MAP_BOX"] * {{ color: #111111 !important; }}
+    div.st-key-WHITE_MAP_BOX * {{ color: #111111 !important; }}
 
     /* 2. THE LADDER KILLER: Force elements to be inline-block, bypassing Flexbox entirely */
     div[class*="st-key-MAPROW_"] > div > div[data-testid="stVerticalBlock"],
@@ -795,6 +797,7 @@ def inject_theme(intro: bool = False) -> None:
         overflow-y: hidden !important;
         padding-bottom: 12px !important;
         width: 100% !important;
+        text-align: left !important;
         scrollbar-width: thin;
         scrollbar-color: rgba(212,175,55,0.3) transparent;
     }}
@@ -812,12 +815,15 @@ def inject_theme(intro: bool = False) -> None:
     div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"] {{
         display: inline-block !important;
         vertical-align: middle !important;
-        width: 32px !important;
-        margin-right: 4px !important;
     }}
 
     /* 4. The Seat Buttons */
-    div[class*="st-key-MAPROW_"] button {{
+    div[class*="st-key-seatbtn_"] {{
+        width: 32px !important;
+        min-width: 32px !important;
+        margin-right: 6px !important;
+    }}
+    div[class*="st-key-seatbtn_"] button {{
         width: 100% !important;
         aspect-ratio: 1/1 !important; /* Perfect square */
         height: 32px !important;
@@ -830,7 +836,7 @@ def inject_theme(intro: bool = False) -> None:
         border-radius: 4px !important;
         transition: transform .07s ease, box-shadow .18s ease, background-color .18s ease !important;
     }}
-    div[class*="st-key-MAPROW_"] button p {{
+    div[class*="st-key-seatbtn_"] button p {{
         font-size: 11px !important;
         font-weight: 800 !important;
         margin: 0 !important;
@@ -840,71 +846,75 @@ def inject_theme(intro: bool = False) -> None:
     /* BUTTON COLORS AS REQUESTED */
     
     /* Available - GREEN */
-    div[class*="st-key-MAPROW_"] button[kind="secondary"] {{
+    div[class*="st-key-seatbtn_"] button[kind="secondary"] {{
         border: 1px solid #34D07A !important;
         background-color: rgba(52,208,122,0.15) !important;
         color: #000000 !important;
     }}
-    div[class*="st-key-MAPROW_"] button[kind="secondary"] p {{ color: #000000 !important; }}
-    div[class*="st-key-MAPROW_"] button[kind="secondary"]:hover:not(:disabled) {{ 
+    div[class*="st-key-seatbtn_"] button[kind="secondary"] p {{ color: #000000 !important; }}
+    div[class*="st-key-seatbtn_"] button[kind="secondary"]:hover:not(:disabled) {{ 
         background-color: rgba(52,208,122,0.4) !important; 
         transform: translateY(-2px); 
     }}
     
     /* Selected - GOLD */
-    div[class*="st-key-MAPROW_"] button[kind="primary"], 
-    div[class*="st-key-MAPROW_"] [data-testid="stBaseButton-primary"] {{
+    div[class*="st-key-seatbtn_"] button[kind="primary"], 
+    div[class*="st-key-seatbtn_"] [data-testid="stBaseButton-primary"] {{
         background: linear-gradient(135deg, #D4AF37, #FFF2CD, #AA771C) !important;
         border: none !important;
         box-shadow: 0 4px 10px rgba(212,175,55,0.4) !important;
     }}
-    div[class*="st-key-MAPROW_"] button[kind="primary"] p {{ color: #000000 !important; }}
+    div[class*="st-key-seatbtn_"] button[kind="primary"] p {{ color: #000000 !important; }}
     
     /* Taken/Blocked - GREY */
-    div[class*="st-key-MAPROW_"] button:disabled {{
+    div[class*="st-key-seatbtn_"] button:disabled {{
         border: 1px solid #CCCCCC !important;
         background-color: #E8E8E8 !important;
         cursor: not-allowed !important;
     }}
-    div[class*="st-key-MAPROW_"] button:disabled p {{ 
+    div[class*="st-key-seatbtn_"] button:disabled p {{ 
         color: #999999 !important; 
         text-decoration: none !important; 
     }}
 
-    /* Invisible Aisle Spacer */
-    div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(.map-aisle) {{
-        width: 15px !important; 
-        background: transparent !important;
-        border: none !important;
+    /* Invisible Aisle Spacer - FIXED AND 100% INVISIBLE */
+    div[class*="st-key-aisle_"] {{
+        visibility: hidden !important;
+        width: 24px !important;
+        min-width: 24px !important;
+        margin-right: 6px !important;
     }}
 
     /* Mobile Squeeze for Seats */
     @media (max-width: 640px) {{
-        div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"] {{
+        div[class*="st-key-seatbtn_"] {{
             width: 26px !important;
-            margin-right: 3px !important;
+            min-width: 26px !important;
+            margin-right: 4px !important;
         }}
-        div[class*="st-key-MAPROW_"] button {{
+        div[class*="st-key-seatbtn_"] button {{
             height: 26px !important; 
             min-height: 26px !important; 
             border-radius: 4px !important;
         }}
-        div[class*="st-key-MAPROW_"] button p {{ font-size: 10px !important; }}
+        div[class*="st-key-seatbtn_"] button p {{ font-size: 10px !important; }}
         
-        div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(.map-aisle) {{
-            width: 12px !important; 
+        div[class*="st-key-aisle_"] {{
+            width: 16px !important; 
+            min-width: 16px !important; 
+            margin-right: 4px !important;
         }}
     }}
 
     /* STAGE and TEXT styling inside White Box */
     .stage {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.7rem; font-weight:900; letter-spacing:.5em; color:#0D0B06 !important; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
     
-    div[class*="st-key-WHITE_MAP_BOX"] .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
-    div[class*="st-key-WHITE_MAP_BOX"] .rowtag b {{ font-size:1.1rem; font-weight:900; color:#000000 !important; letter-spacing:.06em; }}
-    div[class*="st-key-WHITE_MAP_BOX"] .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#666666 !important; }}
+    .st-key-WHITE_MAP_BOX .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
+    .st-key-WHITE_MAP_BOX .rowtag b {{ font-size:1.1rem; font-weight:900; color:#000000 !important; letter-spacing:.06em; }}
+    .st-key-WHITE_MAP_BOX .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#666666 !important; }}
     
-    div[class*="st-key-WHITE_MAP_BOX"] .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
-    div[class*="st-key-WHITE_MAP_BOX"] .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
+    .st-key-WHITE_MAP_BOX .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
+    .st-key-WHITE_MAP_BOX .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
     
     /* Match Legend colors to the new seat colors */
     .lg-free {{ border:1px solid #34D07A; background:rgba(52,208,122,0.15); }}
@@ -1020,6 +1030,7 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
+    # The White Box Container
     with st.container(key="WHITE_MAP_BOX"):
         _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
@@ -1028,15 +1039,12 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
             price = prices[tier]
             _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
 
-            # NO ST.COLUMNS AT ALL.
-            # Buttons are emitted sequentially in a plain container.
-            # Our new inline-block CSS ensures they never stack vertically.
+            # NO st.columns anywhere! Just sequential buttons inside a mapped container.
             with st.container(key=f"MAPROW_{row_letter}"):
                 for i, item in enumerate(layout):
                     if item == "AISLE":
-                        # We use a disabled invisible button to create the exact aisle gap safely
+                        # Hidden invisible button to create the exact aisle gap safely
                         st.button(" ", key=f"aisle_{row_letter}_{i}", disabled=True)
-                        _html(f'<style>div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(button[key="aisle_{row_letter}_{i}"]) {{ visibility: hidden !important; width: 15px !important; min-width: 15px !important; }}</style>')
                     else:
                         seat = f"{row_letter}{item}"
                         taken = statuses.get(seat, AVAILABLE) != AVAILABLE
@@ -1275,7 +1283,7 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
     a.metric("Sold", sold)
     b.metric("Pending", pending)
     c.metric("Open", max(SELLABLE_SEATS - sold - pending, 0))
-    d.metric("Revenue", f"Revenue is hidden until live")
+    d.metric("Revenue", f"₹{revenue:,}")
 
     tracker(sold, pending, SELLABLE_SEATS)
 
