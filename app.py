@@ -89,7 +89,6 @@ VALID_STATUS: Final[tuple[str, ...]] = (AVAILABLE, PENDING, BOOKED)
 IST: Final[ZoneInfo] = ZoneInfo("Asia/Kolkata")
 STATS_TTL: Final[int] = 8
 WRITE_ATTEMPTS: Final[int] = 4
-ONE_PASS_PER_PHONE: Final[bool] = False
 
 BASE_DIR: Final[Path] = Path(__file__).parent
 HEADER_IMG: Final[Path] = BASE_DIR / "header.png"
@@ -104,7 +103,7 @@ EVENT_NAME: Final[str] = cfg("event_name", "A for Amitabh")
 EVENT_SUBTITLE: Final[str] = cfg("event_subtitle", "The Vvineet Chaudhary Show")
 VENUE: Final[str] = cfg("venue", "Inder Dass Auditorium")
 EVENT_DATE: Final[str] = cfg("event_date", "11 Oct 2026")
-EVENT_TIME: Final[str] = cfg("event_time", "4:00 PM")
+EVENT_TIME: Final[str] = cfg("event_time", "4:46 PM Onwards")
 MAPS_URL: Final[str] = cfg("maps_url", "")
 UPI_ID: Final[str] = cfg("upi_id", "")
 VERIFY_HOURS: Final[str] = str(cfg("verify_hours", "2"))
@@ -114,9 +113,7 @@ SPLASH_HOLD: Final[float] = 0.85
 SPLASH_FADE: Final[float] = 0.65
 REVEAL_BASE: Final[float] = 0.72
 
-GOLD_STOPS: Final[tuple[str, ...]] = (
-    "#BF953F", "#FCF6BA", "#B38728", "#FBF5B7", "#AA771C",
-)
+GOLD_STOPS: Final[tuple[str, ...]] = ("#BF953F", "#FCF6BA", "#B38728", "#FBF5B7", "#AA771C")
 GOLD_CSS: Final[str] = "linear-gradient(135deg," + ",".join(GOLD_STOPS) + ")"
 GOLD: Final[str] = "#D4AF37"
 GOLD_SOFT: Final[str] = "#E8CC6B"
@@ -159,12 +156,8 @@ def money_text(value: Any) -> str:
         return str(value)
 
 FONT_SOURCES: Final[dict[str, str]] = {
-    "Inter.ttf":
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/"
-        "Inter%5Bopsz%2Cwght%5D.ttf",
-    "PlayfairDisplay.ttf":
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/"
-        "PlayfairDisplay%5Bwght%5D.ttf",
+    "Inter.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf",
+    "PlayfairDisplay.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf",
 }
 SYSTEM_SANS: Final[tuple[str, ...]] = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -205,18 +198,14 @@ def _fetch_font(name: str) -> Path | None:
 def _face(kind: str) -> tuple[str | None, str | None]:
     if kind == "serif":
         local = _fetch_font("PlayfairDisplay.ttf")
-        if local:
-            return str(local), "Bold"
+        if local: return str(local), "Bold"
         for candidate in SYSTEM_SERIF:
-            if Path(candidate).exists():
-                return candidate, None
+            if Path(candidate).exists(): return candidate, None
         kind = "sans"
     local = _fetch_font("Inter.ttf")
-    if local:
-        return str(local), None
+    if local: return str(local), None
     for candidate in SYSTEM_SANS:
-        if Path(candidate).exists():
-            return candidate, None
+        if Path(candidate).exists(): return candidate, None
     return None, None
 
 ROLES: Final[dict[str, tuple[str, str | None]]] = {
@@ -232,17 +221,13 @@ def font(role: str, size: int) -> Any:
     face, default_weight = ROLES.get(role, ("sans", "Bold"))
     path, forced = _face(face)
     if not path:
-        try:
-            return ImageFont.load_default(size=size)
-        except TypeError:
-            return ImageFont.load_default()
+        try: return ImageFont.load_default(size=size)
+        except TypeError: return ImageFont.load_default()
     fnt = ImageFont.truetype(path, size)
     weight = forced or default_weight
     if weight:
-        try:
-            fnt.set_variation_by_name(weight)
-        except Exception:
-            pass
+        try: fnt.set_variation_by_name(weight)
+        except Exception: pass
     return fnt
 
 @lru_cache(maxsize=16)
@@ -278,10 +263,8 @@ def draw_tracked(
         draw.text((x, y), text, font=fnt, fill=fill, anchor=anchor)
         return
     total = text_w(draw, text, fnt, tracking)
-    if anchor[0] == "m":
-        x -= total / 2
-    elif anchor[0] == "r":
-        x -= total
+    if anchor[0] == "m": x -= total / 2
+    elif anchor[0] == "r": x -= total
     vertical = anchor[1] if len(anchor) > 1 else "a"
     for ch in text:
         draw.text((x, y), ch, font=fnt, fill=fill, anchor="l" + vertical)
@@ -322,8 +305,7 @@ def gold_ramp(size: tuple[int, int]) -> Image.Image:
 def _text_mask(size: tuple[int, int], xy: tuple[float, float], text: str,
                fnt: Any, tracking: float, anchor: str) -> Image.Image:
     mask = Image.new("L", size, 0)
-    draw_tracked(ImageDraw.Draw(mask), xy, text, fnt, 255,
-                 tracking=tracking, anchor=anchor)
+    draw_tracked(ImageDraw.Draw(mask), xy, text, fnt, 255, tracking=tracking, anchor=anchor)
     return mask
 
 def draw_embossed(
@@ -335,16 +317,12 @@ def draw_embossed(
     mask = _text_mask(size, (x, y), text, fnt, tracking, anchor)
     if glow:
         halo = mask.filter(ImageFilter.GaussianBlur(glow))
-        canvas.paste(Image.new("RGB", size, RGB_GOLD), (0, 0),
-                     halo.point(lambda v: int(v * 0.46)))
+        canvas.paste(Image.new("RGB", size, RGB_GOLD), (0, 0), halo.point(lambda v: int(v * 0.46)))
     if emboss:
         shadow = _text_mask(size, (x + emboss, y + emboss), text, fnt, tracking, anchor)
-        canvas.paste(Image.new("RGB", size, (0, 0, 0)), (0, 0),
-                     shadow.point(lambda v: int(v * 0.82)))
-        hi = _text_mask(size, (x - emboss * 0.5, y - emboss * 0.5), text,
-                        fnt, tracking, anchor)
-        canvas.paste(Image.new("RGB", size, (255, 250, 226)), (0, 0),
-                     hi.point(lambda v: int(v * 0.30)))
+        canvas.paste(Image.new("RGB", size, (0, 0, 0)), (0, 0), shadow.point(lambda v: int(v * 0.82)))
+        hi = _text_mask(size, (x - emboss * 0.5, y - emboss * 0.5), text, fnt, tracking, anchor)
+        canvas.paste(Image.new("RGB", size, (255, 250, 226)), (0, 0), hi.point(lambda v: int(v * 0.30)))
     canvas.paste(gold_ramp(size), (0, 0), mask)
 
 def vertical_mask(size: tuple[int, int], stops: list[tuple[float, float]]) -> Image.Image:
@@ -382,8 +360,7 @@ def cover_fit(img: Image.Image, size: tuple[int, int]) -> Image.Image:
     tw, th = size
     sw, sh = img.size
     scale = max(tw / sw, th / sh)
-    resized = img.resize((max(1, round(sw * scale)), max(1, round(sh * scale))),
-                         Image.LANCZOS)
+    resized = img.resize((max(1, round(sw * scale)), max(1, round(sh * scale))), Image.LANCZOS)
     left, top = (resized.width - tw) // 2, (resized.height - th) // 2
     return resized.crop((left, top, left + tw, top + th))
 
@@ -442,8 +419,7 @@ def draw_security_bars(draw: ImageDraw.ImageDraw, x: float, y: float,
         b = raw[i % len(raw)]
         bar = (1 + (b % 4)) * s
         gap = (1 + ((b >> 3) % 3)) * s
-        if cx + bar > x + w:
-            break
+        if cx + bar > x + w: break
         tall = h if (b & 0x40) else h * 0.66
         colour = RGB_GOLD if (b & 0x08) else RGB_SILVER
         draw.rectangle([cx, y + (h - tall), cx + bar, y + h], fill=colour)
@@ -457,44 +433,31 @@ def _draw_background(canvas: Image.Image, s: int) -> None:
         bed = cover_fit(art, (w, h))
         bed = bed.filter(ImageFilter.GaussianBlur(5 * s)).point(lambda v: int(v * 0.52))
         canvas.paste(bed, (0, 0), vertical_mask(
-            (w, h),
-            [(0.00, 0.55), (0.13, 0.28), (0.25, 0.00),
-             (0.78, 0.00), (0.91, 0.22), (1.00, 0.40)],
+            (w, h), [(0.00, 0.55), (0.13, 0.28), (0.25, 0.00), (0.78, 0.00), (0.91, 0.22), (1.00, 0.40)],
         ))
     gold_layer = Image.new("RGB", (w, h), RGB_GOLD)
-    canvas.paste(gold_layer, (0, 0),
-                 radial_glow((w, h), (w * 0.04, -h * 0.16), w * 0.58, 0.24))
-    canvas.paste(gold_layer, (0, 0),
-                 radial_glow((w, h), (w * 0.90, h * 1.12), w * 0.40, 0.14))
+    canvas.paste(gold_layer, (0, 0), radial_glow((w, h), (w * 0.04, -h * 0.16), w * 0.58, 0.24))
+    canvas.paste(gold_layer, (0, 0), radial_glow((w, h), (w * 0.90, h * 1.12), w * 0.40, 0.14))
     vign = Image.new("RGB", (w, h), (0, 0, 0))
     edge = Image.new("L", (w, h), 255)
-    ImageDraw.Draw(edge).rounded_rectangle(
-        [w * 0.026, h * 0.05, w * 0.974, h * 0.95],
-        radius=int(h * 0.10), fill=0)
-    canvas.paste(vign, (0, 0),
-                 edge.filter(ImageFilter.GaussianBlur(int(h * 0.07)))
-                     .point(lambda v: int(v * 0.9)))
+    ImageDraw.Draw(edge).rounded_rectangle([w * 0.026, h * 0.05, w * 0.974, h * 0.95], radius=int(h * 0.10), fill=0)
+    canvas.paste(vign, (0, 0), edge.filter(ImageFilter.GaussianBlur(int(h * 0.07))).point(lambda v: int(v * 0.9)))
 
-def _draw_gold_rule(canvas: Image.Image, box: tuple[float, float, float, float],
-                    radius: int, width: int) -> None:
+def _draw_gold_rule(canvas: Image.Image, box: tuple[float, float, float, float], radius: int, width: int) -> None:
     mask = Image.new("L", canvas.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle(box, radius=radius,
-                                           outline=255, width=width)
+    ImageDraw.Draw(mask).rounded_rectangle(box, radius=radius, outline=255, width=width)
     canvas.paste(gold_ramp(canvas.size), (0, 0), mask)
 
 def _draw_frame(canvas: Image.Image, w: int, h: int, s: int) -> None:
     inset, radius = 15 * s, 26 * s
     _draw_gold_rule(canvas, (inset, inset, w - inset, h - inset), radius, max(1, 2 * s))
     draw = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle(
-        [inset + 7 * s, inset + 7 * s, w - inset - 7 * s, h - inset - 7 * s],
-        radius=radius - 5 * s, outline=(122, 100, 24), width=max(1, s))
+    draw.rounded_rectangle([inset + 7 * s, inset + 7 * s, w - inset - 7 * s, h - inset - 7 * s],
+                           radius=radius - 5 * s, outline=(122, 100, 24), width=max(1, s))
     arm = 26 * s
     for cx, cy, dx, dy in (
-        (inset + 22 * s, inset + 22 * s, 1, 1),
-        (w - inset - 22 * s, inset + 22 * s, -1, 1),
-        (inset + 22 * s, h - inset - 22 * s, 1, -1),
-        (w - inset - 22 * s, h - inset - 22 * s, -1, -1),
+        (inset + 22 * s, inset + 22 * s, 1, 1), (w - inset - 22 * s, inset + 22 * s, -1, 1),
+        (inset + 22 * s, h - inset - 22 * s, 1, -1), (w - inset - 22 * s, h - inset - 22 * s, -1, -1),
     ):
         draw.line([cx, cy, cx + arm * dx, cy], fill=RGB_GOLD, width=max(1, 2 * s))
         draw.line([cx, cy, cx, cy + arm * dy], fill=RGB_GOLD, width=max(1, 2 * s))
@@ -503,13 +466,11 @@ def _draw_perforation(draw: ImageDraw.ImageDraw, x: int, h: int, s: int) -> None
     dash, gap = 13 * s, 11 * s
     y = 44 * s
     while y < h - 44 * s:
-        draw.line([x, y, x, min(y + dash, h - 44 * s)],
-                  fill=RGB_GOLD, width=max(1, 2 * s))
+        draw.line([x, y, x, min(y + dash, h - 44 * s)], fill=RGB_GOLD, width=max(1, 2 * s))
         y += dash + gap
     r = 15 * s
     for cy in (15 * s, h - 15 * s):
-        draw.ellipse([x - r, cy - r, x + r, cy + r],
-                     fill=RGB_INK, outline=RGB_GOLD, width=max(1, 2 * s))
+        draw.ellipse([x - r, cy - r, x + r, cy + r], fill=RGB_INK, outline=RGB_GOLD, width=max(1, 2 * s))
 
 def build_ticket_jpeg(row: pd.Series) -> bytes:
     s = SS
@@ -526,32 +487,23 @@ def build_ticket_jpeg(row: pd.Series) -> bytes:
     right_edge = stub_x - 52 * s
     avail = right_edge - lx
 
-    draw_tracked(draw, (lx, 50 * s), "OFFICIAL ADMISSION PASS",
-                 font("label", 16 * s), RGB_GOLD, tracking=5.4 * s)
-    title_font, title_text = fit_text(draw, EVENT_NAME, "title", avail,
-                                      74 * s, 34 * s)
-    draw_embossed(canvas, (lx, 82 * s), title_text, title_font,
-                  glow=9 * s, emboss=3 * s)
+    draw_tracked(draw, (lx, 50 * s), "OFFICIAL ADMISSION PASS", font("label", 16 * s), RGB_GOLD, tracking=5.4 * s)
+    title_font, title_text = fit_text(draw, EVENT_NAME, "title", avail, 74 * s, 34 * s)
+    draw_embossed(canvas, (lx, 82 * s), title_text, title_font, glow=9 * s, emboss=3 * s)
     draw = ImageDraw.Draw(canvas)
-    sub_font, sub_text = fit_text(draw, EVENT_SUBTITLE, "subtitle", avail,
-                                  27 * s, 14 * s)
-    draw_tracked(draw, (lx, 168 * s), sub_text, sub_font,
-                 (206, 178, 106), tracking=1.6 * s)
+    sub_font, sub_text = fit_text(draw, EVENT_SUBTITLE, "subtitle", avail, 27 * s, 14 * s)
+    draw_tracked(draw, (lx, 168 * s), sub_text, sub_font, (206, 178, 106), tracking=1.6 * s)
 
     meta = f"{VENUE.upper()}   ·   {EVENT_DATE.upper()}   ·   {EVENT_TIME.upper()}"
     meta_font, meta_text = fit_text(draw, meta, "label", avail, 19 * s, 11 * s)
-    draw_tracked(draw, (lx, 214 * s), meta_text, meta_font, RGB_MUTED,
-                 tracking=2.3 * s)
-
-    draw.line([lx, 250 * s, right_edge, 250 * s], fill=(122, 100, 24),
-              width=max(1, s))
+    draw_tracked(draw, (lx, 214 * s), meta_text, meta_font, RGB_MUTED, tracking=2.3 * s)
+    draw.line([lx, 250 * s, right_edge, 250 * s], fill=(122, 100, 24), width=max(1, s))
 
     col_w = (avail - 40 * s) / 2
     col2 = lx + col_w + 40 * s
 
     def field(x: float, y: float, label: str, value: str, max_w: float) -> None:
-        draw_tracked(draw, (x, y), label, font("label", 13 * s),
-                     RGB_MUTED, tracking=3.4 * s)
+        draw_tracked(draw, (x, y), label, font("label", 13 * s), RGB_MUTED, tracking=3.4 * s)
         vf, shown = fit_text(draw, value, "strong", max_w, 36 * s, 16 * s)
         draw.text((x, y + 25 * s), shown, font=vf, fill=RGB_TEXT)
 
@@ -568,42 +520,31 @@ def build_ticket_jpeg(row: pd.Series) -> bytes:
     by, bh = 456 * s, 52 * s
     _draw_gold_rule(canvas, (lx, by, lx + bw, by + bh), bh // 2, max(1, 2 * s))
     draw = ImageDraw.Draw(canvas)
-    draw_tracked(draw, (lx + bw / 2, by + bh / 2), badge, bf, (252, 246, 186),
-                 tracking=3.0 * s, anchor="mm")
+    draw_tracked(draw, (lx + bw / 2, by + bh / 2), badge, bf, (252, 246, 186), tracking=3.0 * s, anchor="mm")
 
     serial = f"REF {digest[:12].upper()}"
-    draw_tracked(draw, (lx + bw + 30 * s, by + bh / 2), serial,
-                 font("label", 13 * s), RGB_MUTED, tracking=3.0 * s, anchor="lm")
+    draw_tracked(draw, (lx + bw + 30 * s, by + bh / 2), serial, font("label", 13 * s), RGB_MUTED, tracking=3.0 * s, anchor="lm")
 
     sx = stub_x + (w - 15 * s - stub_x) / 2
     stub_w = w - 15 * s - stub_x
 
-    draw_tracked(draw, (sx, 50 * s), "SEAT", font("label", 17 * s),
-                 RGB_MUTED, tracking=8 * s, anchor="ma")
-
+    draw_tracked(draw, (sx, 50 * s), "SEAT", font("label", 17 * s), RGB_MUTED, tracking=8 * s, anchor="ma")
     seat = str(row["seat_id"])
     seat_font = fit_font(draw, seat, "hero", stub_w - 74 * s, 110 * s, 50 * s)
-    draw_embossed(canvas, (sx, 72 * s), seat, seat_font, anchor="ma",
-                  glow=13 * s, emboss=4 * s)
+    draw_embossed(canvas, (sx, 72 * s), seat, seat_font, anchor="ma", glow=13 * s, emboss=4 * s)
     draw = ImageDraw.Draw(canvas)
 
     plate = 252 * s
     py = 206 * s
-    _draw_gold_rule(canvas, (sx - plate / 2, py, sx + plate / 2, py + plate),
-                    14 * s, max(1, 2 * s))
+    _draw_gold_rule(canvas, (sx - plate / 2, py, sx + plate / 2, py + plate), 14 * s, max(1, 2 * s))
     draw = ImageDraw.Draw(canvas)
     pad = 8 * s
-    draw.rounded_rectangle(
-        [sx - plate / 2 + pad, py + pad, sx + plate / 2 - pad, py + plate - pad],
-        radius=9 * s, fill=(255, 255, 255))
+    draw.rounded_rectangle([sx - plate / 2 + pad, py + pad, sx + plate / 2 - pad, py + plate - pad], radius=9 * s, fill=(255, 255, 255))
 
     bar_w = plate - 16 * s
     draw_security_bars(draw, sx - bar_w / 2, 476 * s, bar_w, 28 * s, digest, s)
-    draw_tracked(draw, (sx, 516 * s), "SCAN FOR ENTRY", font("label", 15 * s),
-                 RGB_GOLD, tracking=5.4 * s, anchor="ma")
-    draw_tracked(draw, (sx, 540 * s), f"{seat}  ·  NON-TRANSFERABLE",
-                 font("label", 11 * s), (120, 126, 136), tracking=2.2 * s,
-                 anchor="ma")
+    draw_tracked(draw, (sx, 516 * s), "SCAN FOR ENTRY", font("label", 15 * s), RGB_GOLD, tracking=5.4 * s, anchor="ma")
+    draw_tracked(draw, (sx, 540 * s), f"{seat}  ·  NON-TRANSFERABLE", font("label", 11 * s), (120, 126, 136), tracking=2.2 * s, anchor="ma")
 
     out_w, out_h = round(TICKET_W * OUT_SCALE), round(TICKET_H * OUT_SCALE)
     final = canvas.resize((out_w, out_h), Image.LANCZOS)
@@ -636,8 +577,7 @@ def _normalise(df: pd.DataFrame) -> pd.DataFrame:
     df = df.reindex(columns=SCHEMA)
     df = df.astype(object).where(pd.notna(df), "")
     for col in SCHEMA:
-        df[col] = (df[col].astype(str).str.strip()
-                   .replace({"nan": "", "None": "", "NaT": "", "<NA>": ""}))
+        df[col] = (df[col].astype(str).str.strip().replace({"nan": "", "None": "", "NaT": "", "<NA>": ""}))
     for col in ("phone", "utr_number"):
         df[col] = df[col].str.replace(r"\.0$", "", regex=True)
     df["seat_id"] = df["seat_id"].str.upper()
@@ -675,8 +615,7 @@ def is_house_block(row: pd.Series) -> bool:
 def load_prices(*, fresh: bool = False) -> dict[str, int]:
     prices = dict(DEFAULT_PRICES)
     try:
-        raw = get_conn().read(worksheet=SETTINGS_WORKSHEET,
-                              ttl=0 if fresh else STATS_TTL)
+        raw = get_conn().read(worksheet=SETTINGS_WORKSHEET, ttl=0 if fresh else STATS_TTL)
         df = pd.DataFrame(raw).reindex(columns=SETTINGS_SCHEMA)
         df = df.astype(object).where(pd.notna(df), "")
         for _, entry in df.iterrows():
@@ -684,10 +623,8 @@ def load_prices(*, fresh: bool = False) -> dict[str, int]:
             if tier in DEFAULT_PRICES:
                 try:
                     value = int(float(str(entry["price"]).replace(",", "").strip()))
-                    if value >= 0:
-                        prices[tier] = value
-                except (TypeError, ValueError):
-                    continue
+                    if value >= 0: prices[tier] = value
+                except (TypeError, ValueError): continue
     except Exception:
         st.session_state["_prices_fallback"] = True
         return prices
@@ -695,15 +632,12 @@ def load_prices(*, fresh: bool = False) -> dict[str, int]:
     return prices
 
 def save_prices(prices: dict[str, int]) -> None:
-    frame = pd.DataFrame(
-        [{"tier": tier, "price": int(prices[tier])} for tier in TIER_ORDER]
-    )
+    frame = pd.DataFrame([{"tier": tier, "price": int(prices[tier])} for tier in TIER_ORDER])
     get_conn().update(worksheet=SETTINGS_WORKSHEET, data=frame[SETTINGS_SCHEMA])
     st.cache_data.clear()
 
 def tier_price(tier: str) -> int:
-    return int(st.session_state.get("_prices", DEFAULT_PRICES).get(
-        tier, DEFAULT_PRICES.get(tier, 0)))
+    return int(st.session_state.get("_prices", DEFAULT_PRICES).get(tier, DEFAULT_PRICES.get(tier, 0)))
 
 def seat_price(seat_id: str) -> int:
     return tier_price(seat_tier(seat_id))
@@ -713,48 +647,54 @@ UTR_RE: Final[re.Pattern[str]] = re.compile(r"^\d{12}$")
 
 def available_seats(df: pd.DataFrame, row_letter: str | None = None) -> list[str]:
     free = df[df["status"] == AVAILABLE]["seat_id"].tolist()
-    if row_letter:
-        free = [s for s in free if seat_row(s) == row_letter]
+    if row_letter: free = [s for s in free if seat_row(s) == row_letter]
     return sorted(free, key=lambda s: SEAT_RANK.get(s, 10**6))
 
 def find_by_phone(df: pd.DataFrame, phone: str) -> pd.DataFrame:
     hit = df[(df["phone"] == phone) & (df["status"].isin((PENDING, BOOKED)))]
     return hit.sort_values("seat_id", key=lambda c: c.map(SEAT_RANK))
 
-def reserve_seat(seat_id: str, name: str, phone: str, utr: str
-                 ) -> tuple[bool, pd.Series | None, str]:
+# MULTI-SEAT BOOKING LOGIC
+def reserve_multiple_seats(seat_ids: list[str], name: str, phone: str, utr: str) -> tuple[bool, str]:
     for _ in range(WRITE_ATTEMPTS):
         df = load_seats(fresh=True)
         if df.empty:
-            return False, None, "Seat database is empty. Ask the organiser."
+            return False, "Seat database is empty. Ask the organiser."
 
         clash = df[(df["utr_number"] == utr) & (df["utr_number"] != "")]
         if not clash.empty:
-            return False, None, "That UTR has already been used. Please use a unique UTR."
+            return False, "That UTR has already been used. Please use a unique UTR."
 
-        match = df.index[df["seat_id"] == seat_id]
-        if match.empty:
-            return False, None, f"Seat {seat_id} is not in the seating plan."
-        idx = match[0]
-        if df.at[idx, "status"] != AVAILABLE:
-            return False, None, f"Seat {seat_id} was just taken. Please pick another."
+        for seat_id in seat_ids:
+            match = df.index[df["seat_id"] == seat_id]
+            if match.empty:
+                return False, f"Seat {seat_id} is not in the seating plan."
+            idx = match[0]
+            if df.at[idx, "status"] != AVAILABLE:
+                return False, f"Seat {seat_id} was taken while you were deciding. Please pick another."
 
-        df.loc[idx, SCHEMA[1:]] = [PENDING, name, phone, utr, now_ist(), ""]
+        for seat_id in seat_ids:
+            idx = df.index[df["seat_id"] == seat_id][0]
+            df.loc[idx, SCHEMA[1:]] = [PENDING, name, phone, utr, now_ist(), ""]
         save_seats(df)
 
         confirm = load_seats(fresh=True)
-        back = confirm[confirm["seat_id"] == seat_id]
-        if not back.empty and back.iloc[0]["utr_number"] == utr:
-            return True, back.iloc[0], f"Seat {seat_id} held for verification."
+        success = True
+        for seat_id in seat_ids:
+            back = confirm[confirm["seat_id"] == seat_id]
+            if back.empty or back.iloc[0]["utr_number"] != utr:
+                success = False
+        
+        if success:
+            return True, "Seats held for verification."
 
-    return False, None, "High demand right now — that seat was taken mid-booking. Please try again."
+    return False, "High demand right now — someone grabbed a seat. Please try again."
 
 def set_status(seat_id: str, new_status: str) -> tuple[bool, str]:
     for _ in range(WRITE_ATTEMPTS):
         df = load_seats(fresh=True)
         match = df.index[df["seat_id"] == seat_id]
-        if match.empty:
-            return False, f"Seat {seat_id} not found."
+        if match.empty: return False, f"Seat {seat_id} not found."
         idx = match[0]
 
         if new_status == BOOKED:
@@ -776,20 +716,14 @@ def set_status(seat_id: str, new_status: str) -> tuple[bool, str]:
 def check_in(seat_id: str) -> tuple[bool, str, pd.Series | None]:
     df = load_seats(fresh=True)
     match = df[df["seat_id"] == seat_id.upper()]
-    if match.empty:
-        return False, f"{seat_id} is not in the plan.", None
+    if match.empty: return False, f"{seat_id} is not in the plan.", None
     row = match.iloc[0]
 
-    if is_house_block(row):
-        return False, f"{seat_id} is a house block.", row
-    if row["status"] == AVAILABLE:
-        return False, f"{seat_id} has not been sold.", row
-    if row["status"] == PENDING:
-        return False, f"{seat_id} is awaiting verification.", row
-    if row["status"] != BOOKED:
-        return False, f"{seat_id} is not a valid pass.", row
-    if str(row["checkin_time"]).strip():
-        return False, f"ALREADY CHECKED IN at {row['checkin_time']}.", row
+    if is_house_block(row): return False, f"{seat_id} is a house block.", row
+    if row["status"] == AVAILABLE: return False, f"{seat_id} has not been sold.", row
+    if row["status"] == PENDING: return False, f"{seat_id} is awaiting verification.", row
+    if row["status"] != BOOKED: return False, f"{seat_id} is not a valid pass.", row
+    if str(row["checkin_time"]).strip(): return False, f"ALREADY CHECKED IN at {row['checkin_time']}.", row
 
     idx = df.index[df["seat_id"] == seat_id.upper()][0]
     df.at[idx, "checkin_time"] = now_ist()
@@ -811,17 +745,11 @@ def _html(markup: str) -> None:
 def inject_theme(intro: bool = False) -> None:
     hold, fade = SPLASH_HOLD, SPLASH_FADE
     if intro:
-        stagger = "".join(
-            f'[data-testid="stVerticalBlock"] > *:nth-child({i}) '
-            f"{{ animation-delay:{REVEAL_BASE + 0.05 * (i - 1):.2f}s; }} "
-            for i in range(1, 11)
-        )
-        reveal = (
-            '[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],'
-            '[data-testid="stVerticalBlock"] > .stElementContainer {'
-            "animation:vipRise .55s cubic-bezier(.22,1,.36,1) both;"
-            f"animation-delay:{REVEAL_BASE:.2f}s; }} " + stagger
-        )
+        stagger = "".join(f'[data-testid="stVerticalBlock"] > *:nth-child({i}) {{ animation-delay:{REVEAL_BASE + 0.05 * (i - 1):.2f}s; }} ' for i in range(1, 11))
+        reveal = ('[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],'
+                  '[data-testid="stVerticalBlock"] > .stElementContainer {'
+                  "animation:vipRise .55s cubic-bezier(.22,1,.36,1) both;"
+                  f"animation-delay:{REVEAL_BASE:.2f}s; }} " + stagger)
     else:
         reveal = ""
 
@@ -837,126 +765,105 @@ def inject_theme(intro: bool = False) -> None:
           radial-gradient(950px 600px at 96% 2%, rgba(52,208,122,.055), transparent 62%) !important;
         color:#ECE7DA !important;
     }}
-    [data-testid="stHeader"], header[data-testid="stHeader"] {{
-        background:transparent !important; }}
+    [data-testid="stHeader"], header[data-testid="stHeader"] {{ background:transparent !important; }}
     .block-container {{ padding-top:1.2rem; padding-bottom:3.5rem; max-width:840px; }}
     html, body, [class*="css"] {{ font-family:Inter, system-ui, sans-serif; }}
     
     .glass {{
-        position:relative;
-        background:rgba(255,255,255,0.03);
+        position:relative; background:rgba(255,255,255,0.03);
         border-radius:22px; padding:1.7rem 1.9rem; margin-bottom:1rem;
-        box-shadow:0 24px 60px rgba(0,0,0,.66),
-                   inset 0 1px 0 rgba(255,255,255,.07);
-        backdrop-filter:blur(18px) saturate(150%);
-        -webkit-backdrop-filter:blur(18px) saturate(150%);
+        box-shadow:0 24px 60px rgba(0,0,0,.66), inset 0 1px 0 rgba(255,255,255,.07);
+        backdrop-filter:blur(18px) saturate(150%); -webkit-backdrop-filter:blur(18px) saturate(150%);
     }}
     .glass::before {{
         content:""; position:absolute; inset:0; border-radius:inherit;
         padding:1px; background:{GOLD_CSS}; opacity:.55;
         -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-        -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box,
-                                          linear-gradient(#000 0 0);
+        -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
         mask-composite:exclude; pointer-events:none;
     }}
     .glass--hero::before {{ opacity:.9; animation:vipBreathe 5.6s ease-in-out infinite; }}
-    .glass--hero {{ box-shadow:0 24px 60px rgba(0,0,0,.66),
-                    inset 0 1px 0 rgba(255,255,255,.07),
-                    0 0 44px rgba(212,175,55,.10); }}
+    .glass--hero {{ box-shadow:0 24px 60px rgba(0,0,0,.66), inset 0 1px 0 rgba(255,255,255,.07), 0 0 44px rgba(212,175,55,.10); }}
 
     .pill {{
-        display:inline-block; padding:.46rem 1.2rem; border-radius:999px;
-        font-size:.63rem; font-weight:900; letter-spacing:.3em; color:#12141A;
+        display:inline-block; padding:.46rem 1.2rem; border-radius:999px; font-size:.63rem; font-weight:900; letter-spacing:.3em; color:#12141A;
         background:{GOLD_CSS}; background-size:200% 200%;
         animation:pillsheen 6s ease-in-out infinite, pillglow 3.2s ease-in-out infinite;
     }}
-    @keyframes pillsheen {{ 0%,100%{{background-position:0% 50%}}
-                            50%{{background-position:100% 50%}} }}
+    @keyframes pillsheen {{ 0%,100%{{background-position:0% 50%}} 50%{{background-position:100% 50%}} }}
     @keyframes pillglow {{
         0%,100%{{box-shadow:0 0 14px rgba(212,175,55,.38),0 0 32px rgba(212,175,55,.14)}}
         50%    {{box-shadow:0 0 28px rgba(212,175,55,.70),0 0 62px rgba(212,175,55,.28)}}
     }}
     .show-title {{
-        font-family:'Playfair Display', Georgia, serif;
-        font-size:clamp(2.1rem, 7vw, 3.1rem); font-weight:900; line-height:1.02;
-        margin:1rem 0 .3rem; letter-spacing:-.005em;
-        background:{GOLD_CSS};
-        -webkit-background-clip:text; background-clip:text;
-        -webkit-text-fill-color:transparent;
+        font-family:'Playfair Display', Georgia, serif; font-size:clamp(2.1rem, 7vw, 3.1rem); font-weight:900; line-height:1.02;
+        margin:1rem 0 .3rem; letter-spacing:-.005em; background:{GOLD_CSS};
+        -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
         filter:drop-shadow(0 6px 26px rgba(212,175,55,.26));
     }}
     .show-sub {{
-        font-family:'Playfair Display', Georgia, serif;
-        font-size:1.02rem; font-weight:500; font-style:italic;
+        font-family:'Playfair Display', Georgia, serif; font-size:1.02rem; font-weight:500; font-style:italic;
         letter-spacing:.04em; color:rgba(232,204,107,.9); margin-bottom:.2rem;
     }}
-    .micro {{ font-size:.74rem; font-weight:300; letter-spacing:.13em;
-              line-height:1.75; color:rgba(236,231,218,.46); }}
-    .eyebrow {{ font-size:.58rem; font-weight:800; letter-spacing:.32em;
-                text-transform:uppercase; color:rgba(236,231,218,.4); }}
+    .micro {{ font-size:.74rem; font-weight:300; letter-spacing:.13em; line-height:1.75; color:rgba(236,231,218,.46); }}
+    .eyebrow {{ font-size:.58rem; font-weight:800; letter-spacing:.32em; text-transform:uppercase; color:rgba(236,231,218,.4); }}
 
     .chips {{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1.1rem; }}
     .chip {{
-        display:inline-flex; align-items:baseline; gap:.55rem;
-        padding:.5rem 1rem; border-radius:12px; font-size:.76rem;
-        font-weight:500; letter-spacing:.02em; color:#EFE8D8;
-        border:1px solid rgba(212,175,55,.24); background:rgba(212,175,55,.06);
-        transition:border-color .2s ease, background .2s ease, transform .12s ease;
+        display:inline-flex; align-items:baseline; gap:.55rem; padding:.5rem 1rem; border-radius:12px; font-size:.76rem;
+        font-weight:500; letter-spacing:.02em; color:#EFE8D8; border:1px solid rgba(212,175,55,.24); background:rgba(212,175,55,.06);
     }}
-    .chip:hover {{ border-color:rgba(212,175,55,.55);
-                   background:rgba(212,175,55,.12); transform:translateY(-1px); }}
-    .chip b {{ font-size:.58rem; font-weight:900; letter-spacing:.2em;
-               color:{GOLD_SOFT}; text-transform:uppercase; }}
-    .chip--map {{ border-color:rgba(212,175,55,.5);
-                  background:rgba(212,175,55,.11); }}
-    a.chip, a.chip:link, a.chip:visited, a.chip:hover {{
-        text-decoration:none !important; color:#EFE8D8 !important; }}
+    .chip b {{ font-size:.58rem; font-weight:900; letter-spacing:.2em; color:{GOLD_SOFT}; text-transform:uppercase; }}
+    .chip--map {{ border-color:rgba(212,175,55,.5); background:rgba(212,175,55,.11); }}
+    a.chip, a.chip:link, a.chip:visited, a.chip:hover {{ text-decoration:none !important; color:#EFE8D8 !important; }}
 
-    /* ============ TIER CARDS (GOLD FIX) ============ */
+    /* ============ TIER CARDS (GOLD) ============ */
     .tier-grid {{ display:flex; flex-wrap:wrap; gap:.75rem; margin-top:.9rem; }}
-    .tier {{ position:relative; overflow:hidden;
-             flex:1 1 200px; min-width:190px; max-width:100%;
-             padding:1rem 1.15rem; border-radius:15px;
-             border:1px solid #D4AF37;
+    .tier {{ position:relative; overflow:hidden; flex:1 1 200px; min-width:190px; max-width:100%;
+             padding:1rem 1.15rem; border-radius:15px; border:1px solid #D4AF37;
              background:linear-gradient(135deg, rgba(212,175,55,0.1), rgba(0,0,0,0.8));
              box-shadow:inset 0 1px 0 rgba(255,255,255,.06); }}
-    .tier-price {{ font-size:1.8rem; font-weight:900; line-height:1.15;
-                   font-variant-numeric:tabular-nums;
+    .tier-price {{ font-size:1.8rem; font-weight:900; line-height:1.15; font-variant-numeric:tabular-nums;
                    background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
-                   -webkit-background-clip:text; background-clip:text;
-                   -webkit-text-fill-color:transparent;
+                   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
                    filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
-    .tier-rows {{ font-size:.66rem; letter-spacing:.14em; text-transform:uppercase;
-                  color:rgba(236,231,218,.8); }}
+    .tier-rows {{ font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
     @media (max-width:640px) {{
         .tier {{ flex:1 1 100%; min-width:0; padding:.85rem 1rem; }}
         .tier-price {{ font-size:1.55rem; }}
     }}
 
-    /* ============ SEAT MAP (CSS GRID FORCE HACK) ============ */
-    /* Streamlit tries to stack buttons vertically. We completely override the parent block */
+    /* ============ SEAT MAP (STRICT GRID FIX FOR STREAMLIT) ============ */
     div[class*="st-key-seatrow_"] > div > div[data-testid="stVerticalBlock"],
     div[class*="st-key-seatrow_"] [data-testid="stVerticalBlock"] {{
-        display: grid !important;
-        grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)) !important;
-        gap: 8px !important;
-        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        padding-bottom: 10px !important;
     }}
-    @media (max-width: 640px) {{
-        div[class*="st-key-seatrow_"] > div > div[data-testid="stVerticalBlock"],
-        div[class*="st-key-seatrow_"] [data-testid="stVerticalBlock"] {{
-            grid-template-columns: repeat(5, 1fr) !important; /* Force EXACTLY 5 columns on mobile */
-            gap: 6px !important;
+    div[class*="st-key-seat_"] {{
+        width: calc(20% - 6px) !important; /* STRICTLY 5 SEATS PER ROW ON MOBILE */
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+    }}
+    @media (min-width: 641px) {{
+        div[class*="st-key-seat_"] {{
+            width: calc(10% - 6px) !important; /* 10 SEATS PER ROW ON DESKTOP */
         }}
     }}
     div[class*="st-key-seat_"] button {{
         width: 100% !important;
         height: auto !important;
         min-height: 52px !important;
-        padding: 5px 0 !important;
+        aspect-ratio: 1 / 1 !important; /* FORCE PERFECT SQUARE */
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 2px !important;
         border-radius: 8px !important;
-        white-space: pre-wrap !important;
-        line-height: 1.3 !important;
+        line-height: 1.2 !important;
         border:1px solid rgba(212,175,55,.55) !important;
         background-color:rgba(212,175,55,.07) !important;
         color:#F1E4BC !important;
@@ -969,113 +876,63 @@ def inject_theme(intro: bool = False) -> None:
         margin: 0 !important;
     }}
     div[class*="st-key-seat_"] button:hover:not(:disabled) {{
-        background-color:rgba(212,175,55,.24) !important;
-        border-color:{GOLD} !important;
-        box-shadow:0 0 16px rgba(212,175,55,.6) !important;
-        transform:translateY(-2px); 
+        background-color:rgba(212,175,55,.24) !important; border-color:{GOLD} !important;
+        box-shadow:0 0 16px rgba(212,175,55,.6) !important; transform:translateY(-2px); 
     }}
     div[class*="st-key-seat_"] button:disabled {{
-        border:1px solid rgba(255,255,255,.14) !important;
-        background-color:#1a1a1a !important;
-        color:rgba(255,255,255,.4) !important; 
-        opacity:1 !important;
-        cursor:not-allowed !important;
-        text-decoration:none !important; 
+        border:1px solid rgba(255,255,255,.14) !important; background-color:#1a1a1a !important;
+        color:rgba(255,255,255,.4) !important; opacity:1 !important; cursor:not-allowed !important; text-decoration:none !important; 
     }}
-    div[class*="st-key-seat_"] button:disabled p {{
-        color:rgba(255,255,255,.4) !important; 
-        text-decoration:none !important;
+    div[class*="st-key-seat_"] button:disabled p {{ color:rgba(255,255,255,.4) !important; text-decoration:none !important; }}
+    div[class*="st-key-seat_"] button[kind="primary"], div[class*="st-key-seat_"] [data-testid="stBaseButton-primary"] {{
+        background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important; background-color:{GOLD} !important;
+        color:#12100C !important; border:none !important; box-shadow:0 0 22px rgba(212,175,55,.9) !important; 
     }}
-    div[class*="st-key-seat_"] button[kind="primary"],
-    div[class*="st-key-seat_"] [data-testid="stBaseButton-primary"] {{
-        background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important;
-        background-color:{GOLD} !important; color:#12100C !important;
-        border:none !important;
-        box-shadow:0 0 22px rgba(212,175,55,.9) !important; 
-    }}
-    div[class*="st-key-seat_"] button[kind="primary"] p {{
-        color:#12100C !important; 
-    }}
+    div[class*="st-key-seat_"] button[kind="primary"] p {{ color:#12100C !important; }}
+
     @media (max-width: 640px) {{
-        div[class*="st-key-seat_"] button p {{
-            font-size: 0.55rem !important; /* Smaller text for mobile square */
-        }}
-        div[class*="st-key-seat_"] button {{
-            min-height: 48px !important;
-        }}
+        div[class*="st-key-seat_"] button {{ min-height: 48px !important; }}
+        div[class*="st-key-seat_"] button p {{ font-size: 0.55rem !important; }}
     }}
 
     .screen {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center;
-               font-size:.6rem; font-weight:900; letter-spacing:.55em;
-               color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px;
-               background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
+               font-size:.6rem; font-weight:900; letter-spacing:.55em; color:#0D0B06;
+               border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
                box-shadow:0 14px 44px rgba(212,175,55,.4); }}
-    .rowtag {{ display:flex; align-items:baseline; gap:.6rem;
-               margin:.9rem 0 .35rem; }}
-    .rowtag b {{ font-size:1rem; font-weight:900; color:{GOLD_SOFT};
-                 letter-spacing:.06em; }}
-    .rowtag span {{ font-size:.54rem; letter-spacing:.2em; font-weight:800;
-                    text-transform:uppercase; color:rgba(236,231,218,.4); }}
+    .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:.9rem 0 .35rem; }}
+    .rowtag b {{ font-size:1rem; font-weight:900; color:{GOLD_SOFT}; letter-spacing:.06em; }}
+    .rowtag span {{ font-size:.54rem; letter-spacing:.2em; font-weight:800; text-transform:uppercase; color:rgba(236,231,218,.4); }}
     .legend {{ display:flex; flex-wrap:wrap; gap:1.1rem; margin:.2rem 0 1rem;
-               font-size:.62rem; letter-spacing:.13em; text-transform:uppercase;
-               color:rgba(236,231,218,.5); }}
-    .legend i {{ display:inline-block; width:15px; height:15px; border-radius:5px;
-                 margin-right:.45rem; vertical-align:-3px; }}
-    .lg-free {{ border:1px solid rgba(212,175,55,.6);
-                background:rgba(212,175,55,.08); }}
-    .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
-                box-shadow:0 0 12px rgba(212,175,55,.7); }}
-    .lg-gone {{ border:1px solid rgba(255,255,255,.16);
-                background:#1a1a1a; }}
+               font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:rgba(236,231,218,.5); }}
+    .legend i {{ display:inline-block; width:15px; height:15px; border-radius:5px; margin-right:.45rem; vertical-align:-3px; }}
+    .lg-free {{ border:1px solid rgba(212,175,55,.6); background:rgba(212,175,55,.08); }}
+    .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 0 12px rgba(212,175,55,.7); }}
+    .lg-gone {{ border:1px solid rgba(255,255,255,.16); background:#1a1a1a; }}
 
     /* ============ RECEIPT ============ */
-    .receipt {{ position:relative; overflow:hidden; margin:.3rem 0 1.2rem;
-                padding:1.35rem 1.6rem; border-radius:18px;
-                background:linear-gradient(135deg, rgba(212,175,55,.16) 0%,
-                           rgba(212,175,55,.05) 42%, rgba(255,255,255,.02) 100%);
-                border:1px solid rgba(212,175,55,.55);
-                box-shadow:0 18px 46px rgba(0,0,0,.55),
-                           inset 0 1px 0 rgba(255,255,255,.10),
-                           0 0 34px rgba(212,175,55,.12); }}
-    .receipt::before {{ content:""; position:absolute; top:0; left:0; right:0;
-                        height:2px; background:{GOLD_CSS}; opacity:.9; }}
+    .receipt {{ position:relative; overflow:hidden; margin:.3rem 0 1.2rem; padding:1.35rem 1.6rem; border-radius:18px;
+                background:linear-gradient(135deg, rgba(212,175,55,.16) 0%, rgba(212,175,55,.05) 42%, rgba(255,255,255,.02) 100%);
+                border:1px solid rgba(212,175,55,.55); box-shadow:0 18px 46px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10), 0 0 34px rgba(212,175,55,.12); }}
+    .receipt::before {{ content:""; position:absolute; top:0; left:0; right:0; height:2px; background:{GOLD_CSS}; opacity:.9; }}
     .r-grid {{ display:flex; flex-wrap:wrap; gap:1.9rem; align-items:flex-end; }}
     .r-cell {{ min-width:96px; }}
-    .r-key {{ display:block; font-size:.56rem; font-weight:900;
-              letter-spacing:.3em; text-transform:uppercase;
-              color:rgba(236,231,218,.5); margin-bottom:.3rem; }}
-    .r-seat {{ font-family:'Playfair Display', Georgia, serif;
-               font-size:3rem; font-weight:900; line-height:1;
-               background:{GOLD_CSS}; -webkit-background-clip:text;
-               background-clip:text; -webkit-text-fill-color:transparent;
-               filter:drop-shadow(0 4px 18px rgba(212,175,55,.35)); }}
-    .r-tier {{ font-size:1.3rem; font-weight:900; color:{GOLD_SOFT};
-               letter-spacing:.1em; }}
-    .r-amt {{ font-size:2.1rem; font-weight:900; color:{NEON}; line-height:1;
-              font-variant-numeric:tabular-nums;
-              text-shadow:0 0 24px rgba(52,208,122,.4); }}
-    .r-note {{ font-size:.68rem; letter-spacing:.1em; margin-top:.9rem;
-               color:rgba(236,231,218,.42); }}
+    .r-key {{ display:block; font-size:.56rem; font-weight:900; letter-spacing:.3em; text-transform:uppercase; color:rgba(236,231,218,.5); margin-bottom:.3rem; }}
+    .r-seat {{ font-family:'Playfair Display', Georgia, serif; font-size:3rem; font-weight:900; line-height:1;
+               background:{GOLD_CSS}; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 4px 18px rgba(212,175,55,.35)); }}
+    .r-tier {{ font-size:1.3rem; font-weight:900; color:{GOLD_SOFT}; letter-spacing:.1em; }}
+    .r-amt {{ font-size:2.1rem; font-weight:900; color:{NEON}; line-height:1; font-variant-numeric:tabular-nums; text-shadow:0 0 24px rgba(52,208,122,.4); }}
+    .r-note {{ font-size:.68rem; letter-spacing:.1em; margin-top:.9rem; color:rgba(236,231,218,.42); }}
 
     /* ============ MOBILE OPTIMIZED STEPPER ============ */
-    .stepper {{ display:flex; align-items:center; gap:.5rem;
-                margin:.2rem 0 1.1rem; flex-wrap:nowrap !important;
-                white-space:nowrap; overflow:hidden; justify-content:space-between; }}
+    .stepper {{ display:flex; align-items:center; gap:.5rem; margin:.2rem 0 1.1rem; flex-wrap:nowrap !important; white-space:nowrap; overflow:hidden; justify-content:space-between; }}
     .stp {{ display:flex; align-items:center; gap:.5rem; }}
-    .stp-dot {{ width:30px; height:30px; border-radius:50%; display:flex;
-                align-items:center; justify-content:center; font-size:.76rem;
-                font-weight:900; border:1px solid rgba(212,175,55,.35);
-                color:rgba(236,231,218,.45); background:rgba(255,255,255,.03); }}
-    .stp-txt {{ font-size:.6rem; font-weight:800; letter-spacing:.2em;
-                text-transform:uppercase; color:rgba(236,231,218,.4); }}
-    .stp-bar {{ flex:1 1 10px; min-width:8px; height:1px;
-                background:rgba(212,175,55,.22); }}
-    .stp.on .stp-dot {{ background:{GOLD_CSS}; color:#12100C;
-                        border-color:transparent;
-                        box-shadow:0 0 18px rgba(212,175,55,.6); }}
+    .stp-dot {{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.76rem;
+                font-weight:900; border:1px solid rgba(212,175,55,.35); color:rgba(236,231,218,.45); background:rgba(255,255,255,.03); }}
+    .stp-txt {{ font-size:.6rem; font-weight:800; letter-spacing:.2em; text-transform:uppercase; color:rgba(236,231,218,.4); }}
+    .stp-bar {{ flex:1 1 10px; min-width:8px; height:1px; background:rgba(212,175,55,.22); }}
+    .stp.on .stp-dot {{ background:{GOLD_CSS}; color:#12100C; border-color:transparent; box-shadow:0 0 18px rgba(212,175,55,.6); }}
     .stp.on .stp-txt {{ color:{GOLD_SOFT}; }}
-    .stp.done .stp-dot {{ border-color:{GOLD}; color:{GOLD_SOFT};
-                          background:rgba(212,175,55,.12); }}
+    .stp.done .stp-dot {{ border-color:{GOLD}; color:{GOLD_SOFT}; background:rgba(212,175,55,.12); }}
     .stp.done .stp-txt {{ color:rgba(232,204,107,.7); }}
     @media (max-width:640px) {{
         .stepper {{ gap:.2rem; }}
@@ -1086,109 +943,59 @@ def inject_theme(intro: bool = False) -> None:
     }}
 
     /* ============ TRUE NEON FORM CONTROLS ============ */
-    .stTextInput label, .stTextInput label p,
-    .stNumberInput label, .stNumberInput label p,
-    .stSelectbox label, .stSelectbox label p {{
-        font-size:0.9rem !important; font-weight:800 !important;
-        letter-spacing:.16em !important; text-transform:uppercase !important;
-        color:#FFF4D6 !important; opacity:1 !important;
-        margin-bottom:.55rem !important;
-        text-shadow:0 0 16px rgba(212,175,55,.45) !important; }}
+    .stTextInput label, .stTextInput label p, .stNumberInput label, .stNumberInput label p, .stSelectbox label, .stSelectbox label p {{
+        font-size:0.9rem !important; font-weight:800 !important; letter-spacing:.16em !important; text-transform:uppercase !important;
+        color:#FFF4D6 !important; opacity:1 !important; margin-bottom:.55rem !important; text-shadow:0 0 16px rgba(212,175,55,.45) !important; }}
 
-    .stTextInput > div > div,
-    .stTextInput [data-baseweb="input"],
-    .stTextInput [data-baseweb="base-input"],
-    [data-testid="stTextInputRootElement"],
-    .stNumberInput [data-baseweb="input"],
-    [data-testid="stNumberInputContainer"] {{
-        background-color:#051408 !important;
-        background-image:none !important;
-        border:2px solid #39FF14 !important;
-        border-radius:14px !important;
+    .stTextInput > div > div, .stTextInput [data-baseweb="input"], .stTextInput [data-baseweb="base-input"],
+    [data-testid="stTextInputRootElement"], .stNumberInput [data-baseweb="input"], [data-testid="stNumberInputContainer"] {{
+        background-color:#051408 !important; background-image:none !important; border:2px solid #39FF14 !important; border-radius:14px !important;
         box-shadow:0 0 15px rgba(57,255,20,0.5), inset 0 0 8px rgba(57,255,20,0.3) !important;
-        transition:box-shadow .22s ease, background-color .22s ease,
-                   border-color .22s ease; }}
+        transition:box-shadow .22s ease, background-color .22s ease, border-color .22s ease; }}
     
-    .stTextInput > div > div:focus-within,
-    .stTextInput [data-baseweb="input"]:focus-within,
-    [data-testid="stTextInputRootElement"]:focus-within,
-    .stNumberInput [data-baseweb="input"]:focus-within {{
-        background-color:#0A240F !important;
-        border-color:#7CFF5A !important;
+    .stTextInput > div > div:focus-within, .stTextInput [data-baseweb="input"]:focus-within,
+    [data-testid="stTextInputRootElement"]:focus-within, .stNumberInput [data-baseweb="input"]:focus-within {{
+        background-color:#0A240F !important; border-color:#7CFF5A !important;
         box-shadow:0 0 25px rgba(57,255,20,0.8), inset 0 0 12px rgba(57,255,20,0.5) !important; }}
 
-    .stTextInput input, .stTextInput input[type="text"],
-    .stTextInput input[type="password"], .stNumberInput input {{
-        height:72px !important; font-size:1.32rem !important;
-        font-weight:700 !important; letter-spacing:.03em !important;
-        padding:0 1.3rem !important;
-        background:transparent !important; background-color:transparent !important;
-        border:none !important; outline:none !important; box-shadow:none !important;
-        color:#D6FFCB !important; caret-color:#39FF14 !important;
-        -webkit-text-fill-color:#D6FFCB !important;
-        text-shadow:0 0 14px rgba(57,255,20,.5) !important; }}
+    .stTextInput input, .stTextInput input[type="text"], .stTextInput input[type="password"], .stNumberInput input {{
+        height:72px !important; font-size:1.32rem !important; font-weight:700 !important; letter-spacing:.03em !important; padding:0 1.3rem !important;
+        background:transparent !important; background-color:transparent !important; border:none !important; outline:none !important; box-shadow:none !important;
+        color:#D6FFCB !important; caret-color:#39FF14 !important; -webkit-text-fill-color:#D6FFCB !important; text-shadow:0 0 14px rgba(57,255,20,.5) !important; }}
     .stTextInput input::placeholder, .stNumberInput input::placeholder {{
-        color:rgba(190,255,175,.4) !important; font-weight:400 !important;
-        font-size:.98rem !important; letter-spacing:.04em !important;
-        text-shadow:none !important;
-        -webkit-text-fill-color:rgba(190,255,175,.4) !important; }}
+        color:rgba(190,255,175,.4) !important; font-weight:400 !important; font-size:.98rem !important; letter-spacing:.04em !important; text-shadow:none !important; -webkit-text-fill-color:rgba(190,255,175,.4) !important; }}
 
     /* ============ BUTTONS & CTA ============ */
-    .stButton > button, .stButton button,
-    .stFormSubmitButton > button, .stFormSubmitButton button,
-    .stDownloadButton > button, .stDownloadButton button,
-    button[kind="primary"], button[kind="secondary"],
-    button[kind="primaryFormSubmit"], button[kind="secondaryFormSubmit"],
-    [data-testid^="stBaseButton"] {{
-        border:1px solid rgba(212,175,55,.42) !important; border-radius:14px !important;
-        background-color:rgba(212,175,55,.09) !important; background-image:none !important;
-        color:#F2EBD9 !important; font-weight:800 !important;
-        letter-spacing:.1em !important; min-height:54px !important;
-        box-shadow:none !important;
+    .stButton > button, .stButton button, .stFormSubmitButton > button, .stFormSubmitButton button, .stDownloadButton > button, .stDownloadButton button,
+    button[kind="primary"], button[kind="secondary"], button[kind="primaryFormSubmit"], button[kind="secondaryFormSubmit"], [data-testid^="stBaseButton"] {{
+        border:1px solid rgba(212,175,55,.42) !important; border-radius:14px !important; background-color:rgba(212,175,55,.09) !important; background-image:none !important;
+        color:#F2EBD9 !important; font-weight:800 !important; letter-spacing:.1em !important; min-height:54px !important; box-shadow:none !important;
         transition:transform .1s ease, box-shadow .24s ease, background-color .24s ease; }}
 
-    .stFormSubmitButton > button, .stFormSubmitButton button,
-    .stFormSubmitButton button[kind="primaryFormSubmit"],
-    .stFormSubmitButton [data-testid^="stBaseButton"] {{
-        width:100% !important; min-height:88px !important;
-        font-size:1.14rem !important; font-weight:900 !important;
-        letter-spacing:.22em !important; border-radius:20px !important;
-        border:none !important; color:#12100C !important;
-        background-color:{GOLD} !important;
-        background-image:{GOLD_CSS} !important; background-size:200% 200%;
-        position:relative; overflow:hidden;
-        animation:ctapulse 2.6s ease-in-out infinite, ctashift 7s ease-in-out infinite; }}
-    .stFormSubmitButton button * {{ color:#12100C !important;
-        font-weight:900 !important; letter-spacing:.22em !important; }}
+    .stFormSubmitButton > button, .stFormSubmitButton button, .stFormSubmitButton button[kind="primaryFormSubmit"], .stFormSubmitButton [data-testid^="stBaseButton"] {{
+        width:100% !important; min-height:88px !important; font-size:1.14rem !important; font-weight:900 !important; letter-spacing:.22em !important; border-radius:20px !important;
+        border:none !important; color:#12100C !important; background-color:{GOLD} !important; background-image:{GOLD_CSS} !important; background-size:200% 200%;
+        position:relative; overflow:hidden; animation:ctapulse 2.6s ease-in-out infinite, ctashift 7s ease-in-out infinite; }}
+    .stFormSubmitButton button * {{ color:#12100C !important; font-weight:900 !important; letter-spacing:.22em !important; }}
     
     .stDownloadButton > button, .stDownloadButton button {{
-        width:100% !important; min-height:74px !important;
-        font-size:1rem !important; font-weight:900 !important;
-        letter-spacing:.18em !important; border-radius:18px !important;
-        border:1px solid rgba(212,175,55,.5) !important; color:#F7F0DE !important;
-        background-color:rgba(212,175,55,.12) !important;
+        width:100% !important; min-height:74px !important; font-size:1rem !important; font-weight:900 !important; letter-spacing:.18em !important; border-radius:18px !important;
+        border:1px solid rgba(212,175,55,.5) !important; color:#F7F0DE !important; background-color:rgba(212,175,55,.12) !important;
         background-image:linear-gradient(135deg, rgba(212,175,55,.2), rgba(212,175,55,.04)) !important; }}
     
-    .st-key-start_booking button {{
-        min-height:92px !important; width:100% !important;
-        font-size:1.2rem !important; font-weight:900 !important;
-        letter-spacing:.24em !important; border-radius:22px !important;
-        border:none !important; color:#08130C !important;
-        background-color:{GOLD} !important;
-        background-image:linear-gradient(120deg,#AA771C 0%,#D4AF37 22%,#FFF2CD 46%,#34D07A 74%,#0FA958 100%) !important;
-        background-size:220% 220% !important;
+    .st-key-start_booking button, .st-key-go_to_pay button {{
+        min-height:92px !important; width:100% !important; font-size:1.1rem !important; font-weight:900 !important; letter-spacing:.15em !important; border-radius:22px !important;
+        border:none !important; color:#08130C !important; background-color:{GOLD} !important;
+        background-image:linear-gradient(120deg,#AA771C 0%,#D4AF37 22%,#FFF2CD 46%,#34D07A 74%,#0FA958 100%) !important; background-size:220% 220% !important;
         animation:startPulse 2.4s ease-in-out infinite, startShift 7s ease-in-out infinite !important; }}
-    .st-key-start_booking button p {{ color:#08130C !important;
-        font-weight:900 !important; letter-spacing:.24em !important; }}
+    .st-key-start_booking button p, .st-key-go_to_pay button p {{ color:#08130C !important; font-weight:900 !important; letter-spacing:.15em !important; }}
     
     @keyframes startShift {{ 0%,100%{{background-position:0% 50%}} 50%{{background-position:100% 50%}} }}
     @keyframes startPulse {{
         0%,100% {{ box-shadow:0 20px 52px -12px rgba(212,175,55,.75), 0 10px 40px -10px rgba(52,208,122,.55), inset 0 1px 0 rgba(255,255,255,.7); }}
         50%     {{ box-shadow:0 26px 68px -10px rgba(212,175,55,.95), 0 16px 54px -8px rgba(52,208,122,.8), inset 0 1px 0 rgba(255,255,255,.7); }} }}
-    .st-key-start_booking button:hover {{ transform:translateY(-3px); }}
-    .st-key-reset_db button {{ background-color:#C7222A !important;
-        background-image:linear-gradient(135deg,#F0616B,#B91C1C) !important;
-        color:#FFF !important; border:none !important; }}
+    .st-key-start_booking button:hover, .st-key-go_to_pay button:hover {{ transform:translateY(-3px); }}
+    .st-key-reset_db button {{ background-color:#C7222A !important; background-image:linear-gradient(135deg,#F0616B,#B91C1C) !important; color:#FFF !important; border:none !important; }}
 
     [data-baseweb="tab-list"] {{ gap:.45rem; border-bottom:1px solid rgba(212,175,55,.14) !important; }}
     [data-baseweb="tab"] {{ font-weight:900 !important; letter-spacing:.16em !important; font-size:.72rem !important; }}
@@ -1203,26 +1010,13 @@ def inject_theme(intro: bool = False) -> None:
     @keyframes vipRise {{ from {{ opacity:0; transform:translateY(16px); }} to   {{ opacity:1; transform:none; }} }}
     @keyframes vipBreathe {{ 0%,100%{{opacity:.5}} 50%{{opacity:1}} }}
 
-    [data-testid="stElementContainer"]:has(.vip-veil),
-    .stElementContainer:has(.vip-veil) {{
+    [data-testid="stElementContainer"]:has(.vip-veil), .stElementContainer:has(.vip-veil) {{
         animation:none !important; transform:none !important; filter:none !important; opacity:1 !important; position:static !important; contain:none !important; }}
     .vip-veil, .vip-veil * {{ pointer-events:none !important; }}
-    .vip-veil {{
-        position:fixed !important; inset:0; z-index:2147483000;
-        display:flex; flex-direction:column; align-items:center;
-        justify-content:center; will-change:opacity;
-        background:radial-gradient(1000px 640px at 50% 44%, #14161D 0%, #05060B 62%, #000 100%);
-        animation:vipVeil {fade:.2f}s cubic-bezier(.4,0,.2,1) {hold:.2f}s forwards; }}
-    .vip-veil__mark {{
-        font-family:'Playfair Display', Georgia, serif; font-size:clamp(1.5rem, 6vw, 3rem); font-weight:900;
-        letter-spacing:.16em; text-align:center; padding:0 1.4rem;
-        background:{GOLD_CSS}; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
-        filter:drop-shadow(0 0 30px rgba(212,175,55,.6)); animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) both; }}
-    .vip-veil__rule {{ height:1px; margin:1.25rem 0 .95rem;
-        background:linear-gradient(90deg,transparent,{GOLD},transparent); animation:vipRuleIn .6s cubic-bezier(.22,1,.36,1) .08s both; }}
-    .vip-veil__sub {{
-        font-family:Inter, system-ui, sans-serif; font-size:.58rem; font-weight:800; letter-spacing:.44em; color:rgba(232,204,107,.72);
-        text-align:center; text-transform:uppercase; animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) .12s both; }}
+    .vip-veil {{ position:fixed !important; inset:0; z-index:2147483000; display:flex; flex-direction:column; align-items:center; justify-content:center; will-change:opacity; background:radial-gradient(1000px 640px at 50% 44%, #14161D 0%, #05060B 62%, #000 100%); animation:vipVeil {fade:.2f}s cubic-bezier(.4,0,.2,1) {hold:.2f}s forwards; }}
+    .vip-veil__mark {{ font-family:'Playfair Display', Georgia, serif; font-size:clamp(1.5rem, 6vw, 3rem); font-weight:900; letter-spacing:.16em; text-align:center; padding:0 1.4rem; background:{GOLD_CSS}; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 30px rgba(212,175,55,.6)); animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) both; }}
+    .vip-veil__rule {{ height:1px; margin:1.25rem 0 .95rem; background:linear-gradient(90deg,transparent,{GOLD},transparent); animation:vipRuleIn .6s cubic-bezier(.22,1,.36,1) .08s both; }}
+    .vip-veil__sub {{ font-family:Inter, system-ui, sans-serif; font-size:.58rem; font-weight:800; letter-spacing:.44em; color:rgba(232,204,107,.72); text-align:center; text-transform:uppercase; animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) .12s both; }}
     {reveal}
     @media (prefers-reduced-motion: reduce) {{
         .vip-veil {{ display:none !important; }}
@@ -1250,15 +1044,10 @@ def banner(path: Path, fallback: str) -> None:
     if path.exists():
         st.image(str(path), width="stretch")
     else:
-        _html(f"<div class='glass' style='text-align:center;letter-spacing:.3em;"
-              f"font-weight:900;color:{GOLD_SOFT};'>{fallback}</div>")
+        _html(f"<div class='glass' style='text-align:center;letter-spacing:.3em;font-weight:900;color:{GOLD_SOFT};'>{fallback}</div>")
 
 def hero() -> None:
-    maps_chip = (
-        f'<a class="chip chip--map" href="{MAPS_URL}" target="_blank" '
-        f'rel="noopener noreferrer"><b>Map</b><span>Directions &#8599;</span></a>'
-        if MAPS_URL else ""
-    )
+    maps_chip = f'<a class="chip chip--map" href="{MAPS_URL}" target="_blank" rel="noopener noreferrer"><b>Map</b><span>Directions &#8599;</span></a>' if MAPS_URL else ""
     _html(f"""
     <div class="glass glass--hero">
       <span class="pill">OFFICIAL TICKETING</span>
@@ -1274,23 +1063,12 @@ def hero() -> None:
     """)
 
 def tier_banner(prices: dict[str, int]) -> None:
-    rows = {
-        "VVIP": "Rows A – B",
-        "VIP": "Rows C – G",
-        "PREMIUM": "Rows H – J",
-    }
+    rows = {"VVIP": "Rows A – B", "VIP": "Rows C – G", "PREMIUM": "Rows H – J"}
     cards = "".join(
-        f'<div class="tier"><span class="eyebrow">{t}</span>'
-        f'<div class="tier-price">&#8377;{prices[t]:,}</div>'
-        f'<div class="tier-rows">{rows[t]}</div></div>'
+        f'<div class="tier"><span class="eyebrow">{t}</span><div class="tier-price">&#8377;{prices[t]:,}</div><div class="tier-rows">{rows[t]}</div></div>'
         for t in TIER_ORDER
     )
-    _html(f"""
-    <div class="glass" style="padding:1.3rem 1.6rem;">
-      <span class="eyebrow">Seat categories</span>
-      <div class="tier-grid">{cards}</div>
-    </div>
-    """)
+    _html(f'<div class="glass" style="padding:1.3rem 1.6rem;"><span class="eyebrow">Seat categories</span><div class="tier-grid">{cards}</div></div>')
 
 def tracker(sold: int, pending: int, sellable: int) -> None:
     done = sold + pending
@@ -1304,22 +1082,15 @@ def tracker(sold: int, pending: int, sellable: int) -> None:
     .trk-pend {{ animation:fillbar2 1.1s cubic-bezier(.22,1,.36,1) both; }}
     </style>
     <div class="glass" style="padding:1.3rem 1.6rem;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:.75rem;">
-        <span class="eyebrow">Live seating tracker</span>
-        <span class="eyebrow">{pct:.0f}% taken</span>
-      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:.75rem;"><span class="eyebrow">Live seating tracker</span><span class="eyebrow">{pct:.0f}% taken</span></div>
       <div class="trk-rail" style="position:relative;">
-        <div class="trk-pend" style="position:absolute;inset:0;width:{pct:.2f}%;
-             background:rgba(240,169,59,.45);border-radius:999px;"></div>
-        <div class="trk-fill trk-live" style="position:absolute;inset:0;
-             width:{sold_pct:.2f}%;"></div>
+        <div class="trk-pend" style="position:absolute;inset:0;width:{pct:.2f}%; background:rgba(240,169,59,.45);border-radius:999px;"></div>
+        <div class="trk-fill trk-live" style="position:absolute;inset:0; width:{sold_pct:.2f}%;"></div>
       </div>
       <div class="micro" style="margin-top:.75rem;">
-        <span class="num">{sold}</span> confirmed &nbsp;&middot;&nbsp;
-        <span style="color:{AMBER};font-weight:900;">{pending}</span> awaiting
-        verification &nbsp;&middot;&nbsp;
-        <span class="num">{max(sellable - done, 0)}</span> still open
-        &nbsp;&middot;&nbsp; <span class="micro">{len(BLOCKED_SEATS)} house-blocked</span>
+        <span class="num">{sold}</span> confirmed &nbsp;&middot;&nbsp; <span style="color:{AMBER};font-weight:900;">{pending}</span> awaiting
+        &nbsp;&middot;&nbsp; <span class="num">{max(sellable - done, 0)}</span> open
+        &nbsp;&middot;&nbsp; <span class="micro">{len(BLOCKED_SEATS)} blocked</span>
       </div>
     </div>
     """)
@@ -1330,37 +1101,24 @@ def tracker(sold: int, pending: int, sellable: int) -> None:
 
 def auto_download(jpeg: bytes, filename: str, fire_key: str) -> None:
     fired: set[str] = st.session_state.setdefault("_auto_dl", set())
-    if fire_key in fired:
-        return
+    if fire_key in fired: return
     fired.add(fire_key)
     payload = base64.b64encode(jpeg).decode("ascii")
-    components_html(
-        f"""<script>
+    components_html(f"""<script>
 (function(){{
   var b64 = "{payload}";
-  function bytes() {{
-    var s = atob(b64), a = new Uint8Array(s.length);
-    for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
-    return a;
-  }}
+  function bytes() {{ var s = atob(b64), a = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }}
   function save(doc, win) {{
-    try {{
-      var url = win.URL.createObjectURL(new Blob([bytes()], {{type: "image/jpeg"}}));
-      var a = doc.createElement("a");
-      a.href = url; a.download = "{filename}"; a.rel = "noopener";
-      a.style.display = "none";
-      doc.body.appendChild(a); a.click();
-      setTimeout(function(){{ doc.body.removeChild(a); win.URL.revokeObjectURL(url); }}, 5000);
-      return true;
+    try {{ var url = win.URL.createObjectURL(new Blob([bytes()], {{type: "image/jpeg"}})); var a = doc.createElement("a");
+      a.href = url; a.download = "{filename}"; a.rel = "noopener"; a.style.display = "none"; doc.body.appendChild(a); a.click();
+      setTimeout(function(){{ doc.body.removeChild(a); win.URL.revokeObjectURL(url); }}, 5000); return true;
     }} catch (e) {{ return false; }}
   }}
   var ok = false;
   try {{ ok = save(window.parent.document, window.parent); }} catch (e) {{ ok = false; }}
   if (!ok) save(document, window);
 }})();
-</script>""",
-        height=0,
-    )
+</script>""", height=0)
 
 # =============================================================================
 # 11. TAB 1 — BOOK TICKET
@@ -1370,12 +1128,9 @@ NAME_MIN: Final[int] = 3
 
 def validate_booking(name: str, phone: str, utr: str) -> list[str]:
     errors: list[str] = []
-    if len(name) < NAME_MIN:
-        errors.append(f"Full name must be at least {NAME_MIN} characters.")
-    if not PHONE_RE.match(phone):
-        errors.append("Phone must be exactly 10 digits starting with 6-9.")
-    if not UTR_RE.match(utr):
-        errors.append("UTR / Transaction ID must be exactly 12 digits.")
+    if len(name) < NAME_MIN: errors.append(f"Full name must be at least {NAME_MIN} characters.")
+    if not PHONE_RE.match(phone): errors.append("Phone must be exactly 10 digits starting with 6-9.")
+    if not UTR_RE.match(utr): errors.append("UTR / Transaction ID must be exactly 12 digits.")
     return errors
 
 BOOK_STEP: Final[str] = "_book_step"
@@ -1385,36 +1140,14 @@ def goto_step(step: int) -> None:
     st.rerun()
 
 def render_stepper(active: int) -> None:
-    labels = ("Choose", "Seat", "Pay")
+    labels = ("Choose", "Seats", "Pay")
     parts = []
     for index, label in enumerate(labels, start=1):
         state = "on" if index == active else ("done" if index < active else "")
         mark = "&#10003;" if index < active else str(index)
-        parts.append(
-            f'<div class="stp {state}"><div class="stp-dot">{mark}</div>'
-            f'<span class="stp-txt">{label}</span></div>')
-        if index < len(labels):
-            parts.append('<div class="stp-bar"></div>')
+        parts.append(f'<div class="stp {state}"><div class="stp-dot">{mark}</div><span class="stp-txt">{label}</span></div>')
+        if index < len(labels): parts.append('<div class="stp-bar"></div>')
     _html(f'<div class="stepper">{"".join(parts)}</div>')
-
-def render_receipt(seat_id: str, amount: int, locked: bool) -> None:
-    tier = seat_tier(seat_id)
-    note = ("Seat confirmed for this session. It is released only if someone "
-            "else completes payment first — you will be told immediately."
-            if locked else "Confirm to move on to payment.")
-    _html(f"""
-    <div class="receipt">
-      <div class="r-grid">
-        <div class="r-cell"><span class="r-key">Your seat</span>
-             <div class="r-seat">{seat_id}</div></div>
-        <div class="r-cell"><span class="r-key">Category</span>
-             <div class="r-tier">{tier}</div></div>
-        <div class="r-cell"><span class="r-key">Amount payable</span>
-             <div class="r-amt">&#8377;{amount:,}</div></div>
-      </div>
-      <div class="r-note">{note}</div>
-    </div>
-    """)
 
 # --- STEP 1 ---
 
@@ -1429,32 +1162,26 @@ def step_choose(df: pd.DataFrame, prices: dict[str, int]) -> None:
     <div class="glass" style="padding-bottom:.8rem;">
       <span class="pill">HOW IT WORKS</span>
       <div class="micro" style="margin-top:1.05rem;line-height:2;">
-        <b style="color:{GOLD_SOFT};">1.</b> Pick your row and seat &mdash; the
-        price updates live.<br>
-        <b style="color:{GOLD_SOFT};">2.</b> Pay the exact amount by UPI and
-        enter your 12-digit transaction ID.<br>
-        <b style="color:{GOLD_SOFT};">3.</b> We verify within {VERIFY_HOURS}
-        hours, then your pass unlocks in the
-        <b style="color:{GOLD_SOFT};">Download Ticket</b> tab.
+        <b style="color:{GOLD_SOFT};">1.</b> Tap to select multiple seats &mdash; the total price updates live.<br>
+        <b style="color:{GOLD_SOFT};">2.</b> Pay the combined amount by UPI and enter your 12-digit transaction ID.<br>
+        <b style="color:{GOLD_SOFT};">3.</b> We verify within {VERIFY_HOURS} hours, then all your passes unlock in the <b style="color:{GOLD_SOFT};">Download Ticket</b> tab.
       </div>
     </div>
     """)
-    if st.button("START BOOKING", type="primary", width="stretch",
-                 key="start_booking"):
+    if st.button("START BOOKING", type="primary", width="stretch", key="start_booking"):
         goto_step(2)
 
-# --- STEP 2 ---
+# --- STEP 2 (CART LOGIC) ---
 
-def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> str | None:
+def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
-    selected = st.session_state.get("_locked_seat")
-    clicked: str | None = None
+    cart = st.session_state.setdefault("_cart", [])
 
     _html('<div class="screen">S C R E E N</div>')
     _html("""
     <div class="legend">
       <span><i class="lg-free"></i>Available</span>
-      <span><i class="lg-sel"></i>Your seat</span>
+      <span><i class="lg-sel"></i>Your seats</span>
       <span><i class="lg-gone"></i>Taken</span>
     </div>
     """)
@@ -1462,18 +1189,14 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> str | None:
     for row_letter, cap in ROW_CAPACITIES.items():
         tier = ROW_TIER[row_letter]
         price = prices[tier]
-        open_count = sum(
-            1 for n in range(1, cap + 1)
-            if statuses.get(f"{row_letter}{n}", AVAILABLE) == AVAILABLE)
-        _html(f'<div class="rowtag"><b>ROW {row_letter}</b>'
-              f'<span>{tier} &middot; &#8377;{price:,} &middot; '
-              f'{open_count} open</span></div>')
+        open_count = sum(1 for n in range(1, cap + 1) if statuses.get(f"{row_letter}{n}", AVAILABLE) == AVAILABLE)
+        _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,} &middot; {open_count} open</span></div>')
 
         with st.container(key=f"seatrow_{row_letter}"):
             for number in range(1, cap + 1):
                 seat = f"{row_letter}{number}"
                 taken = statuses.get(seat, AVAILABLE) != AVAILABLE
-                is_mine = seat == selected
+                is_mine = seat in cart
                 
                 label = f"{seat}\n₹{price:,}"
                 if st.button(
@@ -1482,9 +1205,11 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> str | None:
                     disabled=taken,
                     type="primary" if is_mine else "secondary",
                 ):
-                    clicked = seat
-
-    return clicked
+                    if is_mine:
+                        cart.remove(seat)
+                    else:
+                        cart.append(seat)
+                    st.rerun()
 
 def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if not available_seats(df):
@@ -1493,48 +1218,54 @@ def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
 
     _html("""
     <div class="glass" style="padding-bottom:.8rem;">
-      <span class="pill">CHOOSE YOUR SEAT</span>
+      <span class="pill">CHOOSE YOUR SEATS</span>
       <div class="micro" style="margin-top:1.05rem;">
-        Tap any available seat. Crossed-out seats are already taken.
-        The price on each seat is set by its row.
+        Tap available seats to select multiple. Crossed-out seats are taken, but show their price.
       </div>
     </div>
     """)
 
-    clicked = render_seat_map(df, prices)
+    render_seat_map(df, prices)
 
-    if clicked:
-        st.session_state["_locked_seat"] = clicked
-        goto_step(3)
+    cart = st.session_state.get("_cart", [])
+    if cart:
+        total = sum(prices[seat_tier(s)] for s in cart)
+        st.markdown("---")
+        if st.button(f"PROCEED TO PAY ₹{total:,} FOR {len(cart)} SEAT(S)", type="primary", width="stretch", key="go_to_pay"):
+            goto_step(3)
 
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Back", width="content", key="back_to_1"):
         goto_step(1)
 
-# --- STEP 3 ---
+# --- STEP 3 (MULTI SEAT CHECKOUT) ---
 
 def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
-    seat_id = st.session_state.get("_locked_seat")
-    if not seat_id:
+    cart = st.session_state.get("_cart", [])
+    if not cart:
         goto_step(2)
         return
 
-    current = df[df["seat_id"] == seat_id]
-    if current.empty or current.iloc[0]["status"] != AVAILABLE:
-        st.error(f"Seat {seat_id} was taken while you were deciding. "
-                 "Please choose another — do not pay yet.", icon="🚫")
-        if st.button("PICK ANOTHER SEAT", type="primary", width="stretch",
-                     key="reselect"):
-            goto_step(2)
-        return
+    total_amount = sum(prices[seat_tier(s)] for s in cart)
+    seats_str = ", ".join(cart)
 
-    amount = prices[seat_tier(seat_id)]
-    render_receipt(seat_id, amount, locked=True)
+    _html(f"""
+    <div class="receipt">
+      <div class="r-grid">
+        <div class="r-cell"><span class="r-key">Your seats ({len(cart)})</span>
+             <div class="r-seat" style="font-size:1.8rem; word-break: break-word;">{seats_str}</div></div>
+        <div class="r-cell"><span class="r-key">Total Amount payable</span>
+             <div class="r-amt">&#8377;{total_amount:,}</div></div>
+      </div>
+      <div class="r-note">Confirm to move on to payment.</div>
+    </div>
+    """)
 
     _html(f"""
     <div class="glass" style="padding-bottom:.9rem;">
       <span class="pill">STEP 1 &middot; PAY BY UPI</span>
       <div class="micro" style="margin-top:1rem;">
-        Scan and pay <b style="color:{GOLD_SOFT};">&#8377;{amount:,}</b> exactly.
+        Scan and pay <b style="color:{GOLD_SOFT};">&#8377;{total_amount:,}</b> exactly for all {len(cart)} seats.
         A different amount will delay verification.
       </div>
     </div>
@@ -1542,21 +1273,15 @@ def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
 
     qr_col, info_col = st.columns([1, 1.25], gap="medium")
     with qr_col:
-        if UPI_QR_IMG.exists():
-            st.image(str(UPI_QR_IMG), width=250)
-        else:
-            _html('<div class="glass" style="text-align:center;padding:2rem 1rem;">'
-                  '<span class="eyebrow">UPI QR missing</span>'
-                  '<div class="micro" style="margin-top:.6rem;">Place '
-                  '<code>upi_qr.png</code> next to app.py.</div></div>')
+        if UPI_QR_IMG.exists(): st.image(str(UPI_QR_IMG), width=250)
+        else: _html('<div class="glass" style="text-align:center;padding:2rem 1rem;"><span class="eyebrow">UPI QR missing</span></div>')
     with info_col:
         if UPI_ID:
             st.markdown("**UPI ID**")
             st.code(UPI_ID, language=None)
         _html(f"""
         <div class="micro" style="line-height:1.95;">
-          After paying, copy the <b style="color:#8CFF7A;">12-digit UTR /
-          Transaction ID</b> from your UPI app receipt.<br>
+          After paying, copy the <b style="color:#8CFF7A;">12-digit UTR / Transaction ID</b> from your UPI app receipt.<br>
           Keep that receipt until you are inside the venue.
         </div>
         """)
@@ -1568,30 +1293,24 @@ def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
     """)
 
     with st.form("book_seat", border=False):
-        name = st.text_input("Full Name", max_chars=60,
-                             placeholder="Exactly as printed on your ID")
-        phone = st.text_input("Phone Number", max_chars=10,
-                              placeholder="10 digits, starting 6-9")
-        utr = st.text_input("12-Digit UTR / Transaction ID", max_chars=12,
-                            placeholder="From your UPI payment receipt")
-        submitted = st.form_submit_button("SUBMIT FOR VERIFICATION",
-                                          type="primary")
+        name = st.text_input("Full Name", max_chars=60, placeholder="Exactly as printed on your ID")
+        phone = st.text_input("Phone Number", max_chars=10, placeholder="10 digits, starting 6-9")
+        utr = st.text_input("12-Digit UTR / Transaction ID", max_chars=12, placeholder="From your UPI payment receipt")
+        submitted = st.form_submit_button("SUBMIT FOR VERIFICATION", type="primary")
 
-    if st.button("Change seat", width="content", key="back_to_2"):
+    if st.button("Edit seats", width="content", key="back_to_2"):
         goto_step(2)
 
-    if not submitted:
-        return
+    if not submitted: return
 
     name, phone, utr = name.strip(), phone.strip(), utr.strip()
     errors = validate_booking(name, phone, utr)
     if errors:
-        for message in errors:
-            st.error(message, icon="⚠️")
+        for message in errors: st.error(message, icon="⚠️")
         return
 
-    with st.spinner("Holding your seat…"):
-        ok, row, message = reserve_seat(seat_id, name, phone, utr)
+    with st.spinner("Holding your seats…"):
+        ok, message = reserve_multiple_seats(cart, name, phone, utr)
 
     if not ok:
         st.error(message, icon="🚫")
@@ -1599,10 +1318,9 @@ def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
 
     st.session_state["_booked_phone"] = phone
     booked = st.session_state.setdefault("_booked_seats", [])
-    confirmed = str(row["seat_id"]) if row is not None else seat_id
-    if confirmed not in booked:
-        booked.append(confirmed)
-    st.session_state.pop("_locked_seat", None)
+    for s in cart:
+        if s not in booked: booked.append(s)
+    st.session_state.pop("_cart", None)
     st.balloons()
     st.rerun()
 
@@ -1610,201 +1328,134 @@ def render_booking(df: pd.DataFrame, prices: dict[str, int]) -> None:
     hero()
     step = int(st.session_state.get(BOOK_STEP, 1))
     render_stepper(step)
-    if step >= 3:
-        step_pay(df, prices)
-    elif step == 2:
-        step_seat(df, prices)
-    else:
-        step_choose(df, prices)
+    if step >= 3: step_pay(df, prices)
+    elif step == 2: step_seat(df, prices)
+    else: step_choose(df, prices)
 
 def render_pending_notice() -> None:
     seats = st.session_state.get("_booked_seats", [])
     phone = st.session_state.get("_booked_phone", "")
     total = sum(seat_price(s) for s in seats)
-    chips = "".join(
-        f'<span class="chip"><b>{s}</b><span>{seat_tier(s)} &middot; '
-        f'&#8377;{seat_price(s):,}</span></span>' for s in seats)
+    chips = "".join(f'<span class="chip"><b>{s}</b><span>{seat_tier(s)} &middot; &#8377;{seat_price(s):,}</span></span>' for s in seats)
     plural = "seat" if len(seats) == 1 else "seats"
 
     _html(f"""
     <div class="notice">
-      <span class="pill" style="background:linear-gradient(135deg,#FFD9A0,{AMBER});">
-        PAYMENT UNDER VERIFICATION</span>
+      <span class="pill" style="background:linear-gradient(135deg,#FFD9A0,{AMBER});">PAYMENT UNDER VERIFICATION</span>
       <h3>{len(seats)} {plural} held &middot; &#8377;{total:,} total</h3>
       <div class="chips" style="margin:.2rem 0 .9rem;">{chips}</div>
-      <p>
-        Each transaction is being verified manually — a maximum of
-        <b>{VERIFY_HOURS} hours</b>.<br><br>
-        <b>No tickets are issued yet.</b> Once confirmed, open the
-        <b>DOWNLOAD TICKET</b> tab and enter
-        <b style="color:#D6FFCB;">{phone}</b> — every pass booked on that number
-        appears there together.<br><br>
-        Keep your UPI receipts until you are inside the venue.
-      </p>
+      <p>Each transaction is being verified manually — a maximum of <b>{VERIFY_HOURS} hours</b>.<br><br>
+        <b>No tickets are issued yet.</b> Once confirmed, open the <b>DOWNLOAD TICKET</b> tab and enter <b style="color:#D6FFCB;">{phone}</b> — every pass booked on that number appears there together.</p>
     </div>
     """)
 
     add, done = st.columns([2, 1], gap="small")
     with add:
-        if st.button("BOOK ANOTHER SEAT", type="primary", width="stretch",
-                     key="book_more"):
-            st.session_state.pop("_locked_seat", None)
+        if st.button("BOOK ANOTHER SEAT", type="primary", width="stretch", key="book_more"):
+            st.session_state.pop("_cart", None)
             st.session_state[BOOK_STEP] = 2
             st.rerun()
     with done:
         if st.button("Done", width="stretch", key="booking_done"):
-            for key in ("_booked_phone", "_booked_seats", "_locked_seat",
-                        BOOK_STEP):
-                st.session_state.pop(key, None)
+            for key in ("_booked_phone", "_booked_seats", "_cart", BOOK_STEP): st.session_state.pop(key, None)
             st.rerun()
 
 # =============================================================================
 # 12. TAB 2 — DOWNLOAD TICKET
 # =============================================================================
 
-def issue_pass(row: pd.Series, prices: dict[str, int],
-               auto_save: bool = True) -> None:
+def issue_pass(row: pd.Series, prices: dict[str, int], auto_save: bool = True) -> None:
     enriched = row.copy()
     enriched["_price"] = prices[seat_tier(str(row["seat_id"]))]
     store: dict[str, bytes] = st.session_state.setdefault("tickets", {})
     seat = str(row["seat_id"])
     if seat not in store:
-        with st.spinner("Pressing your pass…"):
-            store[seat] = build_ticket_jpeg(enriched)
+        with st.spinner("Pressing your pass…"): store[seat] = build_ticket_jpeg(enriched)
     jpeg = store[seat]
     filename = f"VIP_Pass_{seat}.jpeg"
 
-    if auto_save:
-        auto_download(jpeg, filename, fire_key=seat)
+    if auto_save: auto_download(jpeg, filename, fire_key=seat)
 
     _html(f"""
     <div class="glass glass--hero" style="text-align:center;">
       <span class="pill">PAYMENT VERIFIED</span>
-      <div class="show-title" style="font-size:clamp(3rem,14vw,4.6rem);
-           margin:1.1rem 0 .2rem;">{seat}</div>
+      <div class="show-title" style="font-size:clamp(3rem,14vw,4.6rem); margin:1.1rem 0 .2rem;">{seat}</div>
       <div class="show-sub">{EVENT_SUBTITLE}</div>
-      <div class="micro">{row['name']} &nbsp;&middot;&nbsp;
-           {seat_tier(seat)} &nbsp;&middot;&nbsp; &#8377;{enriched['_price']:,} paid</div>
+      <div class="micro">{row['name']} &nbsp;&middot;&nbsp; {seat_tier(seat)} &nbsp;&middot;&nbsp; &#8377;{enriched['_price']:,} paid</div>
     </div>
     """)
     st.image(jpeg, width="stretch")
-    hint = ("Saving automatically. If nothing downloaded, long-press the pass "
-            "to save it, or use the button below."
-            if auto_save else
-            "Tap the button below to save this pass. Browsers block automatic "
-            "multi-file downloads, so each seat is saved individually.")
-    _html(f'<div class="micro" style="text-align:center;margin:-.1rem 0 1rem;">'
-          f'{hint}</div>')
-    st.download_button(
-        f"DOWNLOAD PASS  ·  SEAT {seat}",
-        data=jpeg, file_name=filename, mime="image/jpeg",
-        width="stretch", key=f"dl_{seat}")
+    hint = ("Saving automatically. If nothing downloaded, long-press the pass to save it, or use the button below." if auto_save else
+            "Tap the button below to save this pass. Browsers block automatic multi-file downloads, so each seat is saved individually.")
+    _html(f'<div class="micro" style="text-align:center;margin:-.1rem 0 1rem;">{hint}</div>')
+    st.download_button(f"DOWNLOAD PASS  ·  SEAT {seat}", data=jpeg, file_name=filename, mime="image/jpeg", width="stretch", key=f"dl_{seat}")
 
-    if str(row["checkin_time"]).strip():
-        st.info(f"This pass was already scanned in at {row['checkin_time']}.",
-                icon="✅")
-    if not fonts_ready():
-        st.warning("No TrueType font available — the pass used a bitmap face. "
-                   "Drop a .ttf into `assets/`.", icon="🔤")
+    if str(row["checkin_time"]).strip(): st.info(f"This pass was already scanned in at {row['checkin_time']}.", icon="✅")
     ppm = qr_px_per_module(gate_payload(row))
-    if ppm < 4.0:
-        st.warning(f"QR is dense ({ppm:.1f}px per module) and may not scan. "
-                   "Shorten `maps_url` to a maps.app.goo.gl link.", icon="📷")
+    if ppm < 4.0: st.warning(f"QR is dense ({ppm:.1f}px per module) and may not scan.", icon="📷")
 
 def render_download_tab(prices: dict[str, int]) -> None:
     _html(f"""
     <div class="glass" style="padding-bottom:.7rem;">
       <span class="pill">DOWNLOAD YOUR TICKET</span>
       <div class="micro" style="margin-top:1.05rem;">
-        Enter the phone number you booked with. Passes are released as soon as
-        the organiser verifies your payment &mdash; within {VERIFY_HOURS} hours
-        of booking.
+        Enter the phone number you booked with. Passes are released as soon as the organiser verifies your payment &mdash; within {VERIFY_HOURS} hours.
       </div>
     </div>
     """)
 
     with st.form("fetch_pass", border=False):
-        phone = st.text_input("Phone Number", max_chars=10,
-                              placeholder="The number you booked with")
+        phone = st.text_input("Phone Number", max_chars=10, placeholder="The number you booked with")
         looked_up = st.form_submit_button("GET MY TICKET", type="primary")
 
     if looked_up:
         phone = phone.strip()
-        if not PHONE_RE.match(phone):
-            st.session_state["_lookup"] = {
-                "error": "Enter a valid 10-digit number starting 6-9."}
+        if not PHONE_RE.match(phone): st.session_state["_lookup"] = {"error": "Enter a valid 10-digit number starting 6-9."}
         else:
-            with st.spinner("Checking your booking…"):
-                hits = find_by_phone(load_seats(fresh=True), phone)
-            st.session_state["_lookup"] = (
-                {"rows": hits.to_dict("records")} if not hits.empty
-                else {"error": "No booking found for that number. If you have "
-                               "just paid, please allow a few minutes."})
+            with st.spinner("Checking your booking…"): hits = find_by_phone(load_seats(fresh=True), phone)
+            st.session_state["_lookup"] = ({"rows": hits.to_dict("records")} if not hits.empty else {"error": "No booking found for that number."})
 
     result = st.session_state.get("_lookup")
-    if not result:
-        return
-    if "error" in result:
-        st.error(result["error"], icon="🔍")
-        return
+    if not result: return
+    if "error" in result: st.error(result["error"], icon="🔍"); return
 
     rows = result["rows"]
     ready = [r for r in rows if r["status"] == BOOKED]
     if len(rows) > 1:
         total = sum(prices[seat_tier(str(r["seat_id"]))] for r in rows)
-        _html(f'<div class="micro" style="margin:.2rem 0 1rem;">'
-              f'<span class="num">{len(rows)}</span> booking(s) on this number '
-              f'&middot; <span class="num">{len(ready)}</span> verified '
-              f'&middot; &#8377;{total:,} total</div>')
+        _html(f'<div class="micro" style="margin:.2rem 0 1rem;"><span class="num">{len(rows)}</span> booking(s) on this number &middot; <span class="num">{len(ready)}</span> verified &middot; &#8377;{total:,} total</div>')
 
     for record in rows:
         row = pd.Series(record)
         seat = str(row["seat_id"])
-        if row["status"] == BOOKED:
-            issue_pass(row, prices, auto_save=len(ready) == 1)
+        if row["status"] == BOOKED: issue_pass(row, prices, auto_save=len(ready) == 1)
         elif row["status"] == PENDING:
             _html(f"""
             <div class="notice">
-              <span class="pill" style="background:linear-gradient(135deg,#FFD9A0,{AMBER});">
-                VERIFICATION IN PROGRESS</span>
+              <span class="pill" style="background:linear-gradient(135deg,#FFD9A0,{AMBER});">VERIFICATION IN PROGRESS</span>
               <h3>Seat {seat} is held for you.</h3>
-              <p>We have received your transaction ID
-                 <b style="color:{LIME_TEXT};">{row['utr_number']}</b> and are
-                 confirming it with the bank. This takes up to
-                 <b>{VERIFY_HOURS} hours</b>.</p>
+              <p>We have received your transaction ID <b style="color:{LIME_TEXT};">{row['utr_number']}</b> and are confirming it with the bank.</p>
             </div>
             """)
-        else:
-            st.info(f"Seat {seat} is not currently held against this number.",
-                    icon="ℹ️")
+        else: st.info(f"Seat {seat} is not currently held against this number.", icon="ℹ️")
 
 # =============================================================================
 # 13. ADMIN
 # =============================================================================
 
 def admin_login() -> bool:
-    if st.session_state.get("is_admin"):
-        return True
-    _html("""
-    <div class="glass"><span class="pill">RESTRICTED</span>
-      <div class="micro" style="margin-top:1.05rem;">Organiser access only.</div>
-    </div>
-    """)
+    if st.session_state.get("is_admin"): return True
+    _html('<div class="glass"><span class="pill">RESTRICTED</span><div class="micro" style="margin-top:1.05rem;">Organiser access only.</div></div>')
     with st.form("admin_login", border=False):
         pwd = st.text_input("Admin password", type="password")
         if st.form_submit_button("UNLOCK", type="primary"):
-            if pwd and pwd == cfg("admin_password"):
-                st.session_state["is_admin"] = True
-                st.rerun()
-            else:
-                st.error("Incorrect password.", icon="🔒")
+            if pwd and pwd == cfg("admin_password"): st.session_state["is_admin"] = True; st.rerun()
+            else: st.error("Incorrect password.", icon="🔒")
     return False
 
 def render_verification_queue(df: pd.DataFrame, prices: dict[str, int]) -> None:
     queue = df[df["status"] == PENDING].copy()
-    if queue.empty:
-        st.success("Nothing awaiting verification.", icon="✅")
-        return
+    if queue.empty: st.success("Nothing awaiting verification.", icon="✅"); return
     queue["rank"] = queue["seat_id"].map(SEAT_RANK)
     queue = queue.sort_values("booked_at")
 
@@ -1814,63 +1465,40 @@ def render_verification_queue(df: pd.DataFrame, prices: dict[str, int]) -> None:
         seat = str(row["seat_id"])
         tier = seat_tier(seat)
         expected = prices[tier]
-        with st.expander(
-            f"{seat}  ·  {tier}  ·  ₹{expected:,}  ·  {row['name']}  "
-            f"·  UTR {row['utr_number']}",
-            expanded=False,
-        ):
-            st.write({
-                "Seat": seat,
-                "Category": tier,
-                "Expected amount": f"₹{expected:,}",
-                "Name": row["name"],
-                "Phone": row["phone"],
-                "UTR / Txn ID": row["utr_number"],
-                "Submitted": row["booked_at"],
-            })
+        with st.expander(f"{seat}  ·  {tier}  ·  ₹{expected:,}  ·  {row['name']}  ·  UTR {row['utr_number']}", expanded=False):
+            st.write({"Seat": seat, "Category": tier, "Expected amount": f"₹{expected:,}", "Name": row["name"], "Phone": row["phone"], "UTR / Txn ID": row["utr_number"], "Submitted": row["booked_at"]})
             approve, reject = st.columns(2)
             if approve.button("APPROVE", key=f"ok_{seat}", type="primary", width="stretch"):
                 ok, message = set_status(seat, BOOKED)
                 st.session_state.get("tickets", {}).pop(seat, None)
                 (st.success if ok else st.error)(message)
-                if ok:
-                    st.rerun()
+                if ok: st.rerun()
             if reject.button("REJECT", key=f"no_{seat}", width="stretch"):
                 ok, message = set_status(seat, AVAILABLE)
                 st.session_state.get("tickets", {}).pop(seat, None)
                 (st.success if ok else st.error)(message)
-                if ok:
-                    st.rerun()
+                if ok: st.rerun()
 
 def render_pricing_controller(prices: dict[str, int]) -> None:
     st.caption("Prices are read live from the `settings` worksheet.")
-    if st.session_state.get("_prices_fallback"):
-        st.warning("The `settings` worksheet could not be read — the defaults "
-                   "below are in use. Saving will create/repair the sheet.",
-                   icon="⚠️")
+    if st.session_state.get("_prices_fallback"): st.warning("The `settings` worksheet could not be read — the defaults below are in use. Saving will create/repair the sheet.", icon="⚠️")
 
     with st.form("pricing", border=False):
         columns = st.columns(3)
         new_prices: dict[str, int] = {}
         for column, tier in zip(columns, TIER_ORDER):
-            with column:
-                new_prices[tier] = int(st.number_input(
-                    f"{tier} (₹)", min_value=0, max_value=1_000_000,
-                    value=int(prices[tier]), step=50, key=f"price_{tier}"))
+            with column: new_prices[tier] = int(st.number_input(f"{tier} (₹)", min_value=0, max_value=1_000_000, value=int(prices[tier]), step=50, key=f"price_{tier}"))
         if st.form_submit_button("SAVE PRICING", type="primary"):
-            if new_prices == prices:
-                st.info("No change.", icon="ℹ️")
+            if new_prices == prices: st.info("No change.", icon="ℹ️")
             else:
                 try:
                     save_prices(new_prices)
                     st.success(" · ".join(f"{t} ₹{new_prices[t]:,}" for t in TIER_ORDER), icon="✅")
                     st.rerun()
-                except Exception as exc:  # noqa: BLE001
-                    st.error(f"Could not write settings: {exc}", icon="🔌")
+                except Exception as exc: st.error(f"Could not write settings: {exc}", icon="🔌")
 
 def render_gate_scanner(df: pd.DataFrame) -> None:
-    if not HAS_CV2:
-        st.info("Camera decoding needs `opencv-python-headless`.", icon="📷")
+    if not HAS_CV2: st.info("Camera decoding needs `opencv-python-headless`.", icon="📷")
     else:
         shot = st.camera_input("Scan the pass QR")
         if shot is not None:
@@ -1878,8 +1506,7 @@ def render_gate_scanner(df: pd.DataFrame) -> None:
             frame = cv2.imdecode(buf, cv2.IMREAD_COLOR)
             payload, _, _ = cv2.QRCodeDetector().detectAndDecode(frame)
             seat = seat_from_payload(payload)
-            if not seat:
-                st.error("No readable pass QR in that frame.", icon="📷")
+            if not seat: st.error("No readable pass QR in that frame.", icon="📷")
             else:
                 ok, message, row = check_in(seat)
                 (st.success if ok else st.error)(message, icon="✅" if ok else "⛔")
@@ -1889,8 +1516,7 @@ def render_gate_scanner(df: pd.DataFrame) -> None:
         manual = st.text_input("Manual check-in — seat number", max_chars=4)
         if st.form_submit_button("CHECK IN", type="primary"):
             candidate = manual.strip().upper()
-            if not re.fullmatch(r"[A-J]\d{1,2}", candidate):
-                st.error("Enter a seat like C12.", icon="⚠️")
+            if not re.fullmatch(r"[A-J]\d{1,2}", candidate): st.error("Enter a seat like C12.", icon="⚠️")
             else:
                 ok, message, _ = check_in(candidate)
                 (st.success if ok else st.error)(message, icon="✅" if ok else "⛔")
@@ -1900,24 +1526,18 @@ def render_gate_scanner(df: pd.DataFrame) -> None:
 
 def attendee_table(df: pd.DataFrame, prices: dict[str, int]) -> pd.DataFrame:
     sold = df[(df["status"] == BOOKED) & (~df.apply(is_house_block, axis=1))].copy()
-    if sold.empty:
-        return sold
+    if sold.empty: return sold
     sold["rank"] = sold["seat_id"].map(SEAT_RANK)
     sold = sold.sort_values("rank", na_position="last")
     sold["Category"] = sold["seat_id"].map(seat_tier)
     sold["Paid"] = sold["Category"].map(lambda t: f"₹{prices[t]:,}")
-    return sold[["seat_id", "Category", "Paid", "name", "phone",
-                 "utr_number", "booked_at", "checkin_time"]].rename(
-        columns={"seat_id": "Seat", "name": "Name", "phone": "Phone",
-                 "utr_number": "UTR", "booked_at": "Booked At",
-                 "checkin_time": "Checked In"})
+    return sold[["seat_id", "Category", "Paid", "name", "phone", "utr_number", "booked_at", "checkin_time"]].rename(
+        columns={"seat_id": "Seat", "name": "Name", "phone": "Phone", "utr_number": "UTR", "booked_at": "Booked At", "checkin_time": "Checked In"})
 
 def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
     sold = int(((df["status"] == BOOKED) & (~df.apply(is_house_block, axis=1))).sum())
     pending = int((df["status"] == PENDING).sum())
-    revenue = sum(prices[seat_tier(s)] for s in
-                  df[(df["status"] == BOOKED)]["seat_id"]
-                  if s not in BLOCKED_SEATS)
+    revenue = sum(prices[seat_tier(s)] for s in df[(df["status"] == BOOKED)]["seat_id"] if s not in BLOCKED_SEATS)
 
     a, b, c, d = st.columns(4)
     a.metric("Sold", sold)
@@ -1927,31 +1547,22 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
 
     tracker(sold, pending, SELLABLE_SEATS)
 
-    queue_tab, price_tab, gate_tab, roster_tab, danger_tab = st.tabs(
-        ["VERIFY", "PRICING", "GATE", "ROSTER", "DANGER"])
+    queue_tab, price_tab, gate_tab, roster_tab, danger_tab = st.tabs(["VERIFY", "PRICING", "GATE", "ROSTER", "DANGER"])
 
-    with queue_tab:
-        render_verification_queue(df, prices)
-    with price_tab:
-        render_pricing_controller(prices)
-    with gate_tab:
-        render_gate_scanner(df)
+    with queue_tab: render_verification_queue(df, prices)
+    with price_tab: render_pricing_controller(prices)
+    with gate_tab: render_gate_scanner(df)
     with roster_tab:
         table = attendee_table(df, prices)
-        if table.empty:
-            st.info("No confirmed attendees yet.", icon="🎫")
-        else:
-            st.dataframe(table, hide_index=True, width="stretch")
+        if table.empty: st.info("No confirmed attendees yet.", icon="🎫")
+        else: st.dataframe(table, hide_index=True, width="stretch")
     with danger_tab:
         rows = " · ".join(f"{r}:{n}" for r, n in ROW_CAPACITIES.items())
         st.warning(f"Reset wipes every booking and re-seeds {TOTAL_SEATS} seats.", icon="⚠️")
         confirmed = st.checkbox("I understand this deletes all bookings")
         if st.button("RESET DATABASE", key="reset_db", disabled=not confirmed, width="stretch"):
-            with st.spinner("Re-seeding…"):
-                save_seats(blank_layout())
-            for key in ("tickets", "_lookup", "_auto_dl", "_booked_phone",
-                        "_booked_seats", "_locked_seat", BOOK_STEP):
-                st.session_state.pop(key, None)
+            with st.spinner("Re-seeding…"): save_seats(blank_layout())
+            for key in ("tickets", "_lookup", "_auto_dl", "_booked_phone", "_booked_seats", "_cart", BOOK_STEP): st.session_state.pop(key, None)
             st.success(f"Reset. {TOTAL_SEATS} seats seeded.", icon="✅")
             st.rerun()
 
@@ -1960,15 +1571,13 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
 # =============================================================================
 
 def main() -> None:
-    st.set_page_config(page_title=f"{EVENT_NAME} — Tickets",
-                       page_icon="🎭", layout="centered")
+    st.set_page_config(page_title=f"{EVENT_NAME} — Tickets", page_icon="🎭", layout="centered")
 
     intro = not st.session_state.get("_intro_played", False)
     st.session_state["_intro_played"] = True
 
     inject_theme(intro=intro)
-    if intro:
-        splash_overlay()
+    if intro: splash_overlay()
 
     banner(HEADER_IMG, EVENT_NAME.upper())
 
@@ -1983,21 +1592,16 @@ def main() -> None:
 
     prices = st.session_state["_prices"]
 
-    if df.empty:
-        st.warning("Seat database is empty. Open Admin → Danger and reset it.", icon="🗄️")
+    if df.empty: st.warning("Seat database is empty. Open Admin → Danger and reset it.", icon="🗄️")
 
     book_tab, download_tab, admin_tab = st.tabs(["BOOK TICKET", "DOWNLOAD TICKET", "ADMIN"])
 
     with book_tab:
-        if st.session_state.get("_booked_seats"):
-            render_pending_notice()
-        else:
-            render_booking(df, prices)
-    with download_tab:
-        render_download_tab(prices)
+        if st.session_state.get("_booked_seats"): render_pending_notice()
+        else: render_booking(df, prices)
+    with download_tab: render_download_tab(prices)
     with admin_tab:
-        if admin_login():
-            render_admin(df, prices)
+        if admin_login(): render_admin(df, prices)
 
     st.divider()
     banner(FOOTER_IMG, VENUE.upper())
