@@ -35,7 +35,6 @@ except Exception:  # noqa: BLE001
 # =============================================================================
 # 1. EXACT REAL-WORLD SEATING MATRIX (LTG AUDITORIUM)
 # =============================================================================
-
 ROW_LAYOUTS: Final[dict[str, list[Any]]] = {
     "A": [20,19,18,17,16,15,14,13,12,11, "AISLE", 10,9,8,7,6,5,4,3,2,1],
     "B": [20,19,18,17,16,15,14,13,12,11, "AISLE", 10,9,8,7,6,5,4,3,2,1],
@@ -96,7 +95,7 @@ TIER_ORDER: Final[tuple[str, ...]] = ("VVIP", "VIP", "PREMIUM", "STANDARD")
 DEFAULT_PRICES: Final[dict[str, int]] = {"VVIP": 5000, "VIP": 2400, "PREMIUM": 1000, "STANDARD": 1100}
 
 # =============================================================================
-# 2. SHEET SCHEMA
+# 2. SHEET SCHEMA & CONSTANTS
 # =============================================================================
 WORKSHEET: Final[str] = "passes"
 SCHEMA: Final[list[str]] = ["seat_id", "status", "name", "phone", "utr_number", "booked_at", "checkin_time"]
@@ -142,12 +141,15 @@ GOLD_SOFT: Final[str] = "#E8CC6B"
 OBSIDIAN: Final[str] = "#090B10"
 NEON: Final[str] = "#34D07A"
 AMBER: Final[str] = "#F0A93B"
+LIME: Final[str] = "rgba(144,238,144,1)"
+LIME_TEXT: Final[str] = "rgba(200,255,200,1)"
 
 RGB_GOLD_STOPS: Final[tuple[tuple[int, int, int], ...]] = tuple((int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)) for h in GOLD_STOPS)
 RGB_GOLD: Final[tuple[int, int, int]] = (212, 175, 55)
 RGB_INK: Final[tuple[int, int, int]] = (15, 15, 15)
 RGB_MUTED: Final[tuple[int, int, int]] = (143, 149, 160)
 RGB_TEXT: Final[tuple[int, int, int]] = (246, 243, 236)
+RGB_SILVER: Final[tuple[int, int, int]] = (226, 231, 240)
 
 TICKET_W: Final[int] = 1600
 TICKET_H: Final[int] = 600
@@ -771,112 +773,122 @@ def inject_theme(intro: bool = False) -> None:
     .tier-price {{ font-size:1.6rem; font-weight:900; line-height:1.15; font-variant-numeric:tabular-nums; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
     .tier-rows {{ font-size:.60rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
 
-    /* ============ THE TRUE HORIZONTAL MAP FIX FOR STREAMLIT ============ */
+    /* ============ THE ULTIMATE WHITE SEATING BOX & HORIZONTAL SCROLL HACK ============ */
     
-    /* 1. White Background for the Seating Area */
-    div[class*="st-key-seating_area_container"] > div {{
+    /* 1. The Unified White Box */
+    div.st-key-white_seating_box > div[data-testid="stVerticalBlock"] {{
         background-color: #FFFFFF !important;
         padding: 20px 10px !important;
-        border-radius: 20px !important;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.6) !important;
     }}
+    
+    /* Make sure text inside the white box is visible */
+    div.st-key-white_seating_box {{ color: #111111 !important; }}
 
-    /* 2. Force Horizontal Wrapping on Mobile (Kill the Ladder completely) */
-    div[class*="st-key-ROW_CONTAINER_"] {{
-        background-color: #FFFFFF !important;
-        padding: 5px !important;
-        border-radius: 12px !important;
-        margin-bottom: 15px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-    }}
-    div[class*="st-key-ROW_CONTAINER_"] > div > div[data-testid="stVerticalBlock"] {{
+    /* 2. Force Streamlit Columns to STAY Horizontal on Mobile (Kill the Ladder) */
+    div.st-key-white_seating_box [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: wrap !important; /* Forces seats to wrap inside the white box */
-        justify-content: center !important; /* Centers them */
-        align-items: center !important;
-        gap: 4px !important;
-        width: 100% !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        padding-bottom: 8px !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
     }}
-    
-    /* Override Streamlit's forced 100% width on elements */
-    div[class*="st-key-ROW_CONTAINER_"] [data-testid="stElementContainer"] {{
-        width: auto !important;
-        min-width: auto !important;
-        flex: 0 0 auto !important;
+    div.st-key-white_seating_box [data-testid="stHorizontalBlock"]::-webkit-scrollbar {{
+        display: none !important;
     }}
 
-    /* 3. Tiny Square Buttons with Colors */
-    
-    /* Available - GREEN */
-    div[class*="st-key-seatbtn_"] button {{
-        width: 28px !important;
-        height: 28px !important;
-        min-height: 28px !important;
+    /* 3. Column sizes for Desktop */
+    div.st-key-white_seating_box [data-testid="column"] {{
+        flex: 0 0 32px !important;
+        width: 32px !important;
+        min-width: 32px !important;
+        padding: 0 2px !important;
+    }}
+
+    /* 4. Column sizes for Mobile (Overrides Streamlit's 100% width media query) */
+    @media (max-width: 640px) {{
+        div.st-key-white_seating_box [data-testid="column"] {{
+            flex: 0 0 25px !important;
+            width: 25px !important;
+            min-width: 25px !important;
+            padding: 0 1px !important;
+        }}
+    }}
+
+    /* 5. The Buttons themselves */
+    div.st-key-white_seating_box button {{
+        width: 100% !important;
+        aspect-ratio: 1/1 !important; /* Perfect square */
+        height: auto !important;
+        min-height: 0 !important;
         padding: 0 !important;
         margin: 0 !important;
-        border-radius: 4px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        border: 1px solid #34D07A !important;
-        background-color: rgba(52,208,122,0.15) !important;
+        border-radius: 4px !important;
+        transition: transform .07s ease, box-shadow .18s ease, background-color .18s ease !important;
     }}
-    div[class*="st-key-seatbtn_"] button p {{
+    div.st-key-white_seating_box button p {{
         font-size: 11px !important;
         font-weight: 800 !important;
-        color: #000000 !important;
         margin: 0 !important;
     }}
-    div[class*="st-key-seatbtn_"] button:hover:not(:disabled) {{ 
-        background-color: #34D07A !important; 
-        border-color: #0FA958 !important;
+    @media (max-width: 640px) {{
+        div.st-key-white_seating_box button p {{ font-size: 9px !important; }}
+    }}
+
+    /* BUTTON COLORS AS REQUESTED */
+    
+    /* Available - GREEN */
+    div.st-key-white_seating_box button[kind="secondary"] {{
+        border: 1px solid #34D07A !important;
+        background-color: rgba(52,208,122,0.15) !important;
+        color: #000000 !important;
+    }}
+    div.st-key-white_seating_box button[kind="secondary"] p {{ color: #000000 !important; }}
+    div.st-key-white_seating_box button[kind="secondary"]:hover:not(:disabled) {{ 
+        background-color: rgba(52,208,122,0.4) !important; 
         transform: translateY(-2px); 
     }}
     
-    /* Disabled (Booked/Reserved) Seats - GREY */
-    div[class*="st-key-seatbtn_"] button:disabled {{
+    /* Selected - GOLD */
+    div.st-key-white_seating_box button[kind="primary"], 
+    div.st-key-white_seating_box [data-testid="stBaseButton-primary"] {{
+        background: linear-gradient(135deg, #D4AF37, #FFF2CD, #AA771C) !important;
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(212,175,55,0.6) !important;
+    }}
+    div.st-key-white_seating_box button[kind="primary"] p {{ color: #000000 !important; }}
+    
+    /* Blocked/Taken - GREY */
+    div.st-key-white_seating_box button:disabled {{
         border: 1px solid #CCCCCC !important;
-        background-color: #E0E0E0 !important;
+        background-color: #E8E8E8 !important;
         cursor: not-allowed !important;
     }}
-    div[class*="st-key-seatbtn_"] button:disabled p {{ 
-        color: #888888 !important; 
-        text-decoration: none !important;
+    div.st-key-white_seating_box button:disabled p {{ 
+        color: #999999 !important; 
+        text-decoration: none !important; 
     }}
-    
-    /* Selected (Cart) Seats - GOLD */
-    div[class*="st-key-seatbtn_"] button[kind="primary"] {{
-        background: linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important;
-        border: none !important;
-        box-shadow: 0 0 10px rgba(212,175,55,0.6) !important;
-    }}
-    div[class*="st-key-seatbtn_"] button[kind="primary"] p {{ color: #000000 !important; }}
 
     /* Invisible Aisle Spacer */
-    .map-aisle {{ width: 14px !important; height: 28px !important; }}
+    .map-aisle {{ width: 100% !important; height: 10px !important; }}
 
-    /* Mobile Squeeze for Seats */
-    @media (max-width: 640px) {{
-        div[class*="st-key-seatbtn_"] button {{
-            width: 25px !important; height: 25px !important; min-height: 25px !important; border-radius: 3px !important;
-        }}
-        div[class*="st-key-seatbtn_"] button p {{ font-size: 10px !important; }}
-        .map-aisle {{ width: 10px !important; height: 25px !important; }}
-    }}
-
+    /* STAGE and TEXT styling inside White Box */
     .stage {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.7rem; font-weight:900; letter-spacing:.5em; color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
+    .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
+    .rowtag b {{ font-size:1.1rem; font-weight:900; color:#111111 !important; letter-spacing:.06em; }}
+    .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#777777 !important; }}
     
-    /* ROW HEADERS & LEGEND FOR WHITE BG */
-    div[class*="st-key-seating_area_container"] .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
-    div[class*="st-key-seating_area_container"] .rowtag b {{ font-size:1.1rem; font-weight:900; color:#111111 !important; letter-spacing:.06em; }}
-    div[class*="st-key-seating_area_container"] .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#777777 !important; }}
-    
-    div[class*="st-key-seating_area_container"] .legend {{ display:flex; flex-wrap:wrap; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
-    div[class*="st-key-seating_area_container"] .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
+    .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
+    .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
     .lg-free {{ border:1px solid #34D07A; background:rgba(52,208,122,0.15); }}
-    .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 0 10px rgba(212,175,55,0.6); }}
-    .lg-gone {{ border:1px solid #CCCCCC; background:#E0E0E0; }}
+    .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 2px 6px rgba(212,175,55,.6); }}
+    .lg-gone {{ border:1px solid #CCCCCC; background:#E8E8E8; }}
 
     /* ============ RECEIPT & UI ============ */
     .receipt {{ position:relative; overflow:hidden; margin:.3rem 0 1.2rem; padding:1.35rem 1.6rem; border-radius:18px; background:linear-gradient(135deg, rgba(212,175,55,.16) 0%, rgba(212,175,55,.05) 42%, rgba(255,255,255,.02) 100%); border:1px solid rgba(212,175,55,.55); box-shadow:0 18px 46px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10), 0 0 34px rgba(212,175,55,.12); }}
@@ -987,8 +999,8 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
-    # The entire seating area is wrapped in a container that we style white
-    with st.container(key="seating_area_container"):
+    # The Single White Box Container
+    with st.container(key="white_seating_box"):
         _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
         for row_letter, layout in ROW_LAYOUTS.items():
@@ -996,18 +1008,18 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
             price = prices[tier]
             _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
 
-            # NO st.columns used! Just direct buttons inside a container.
-            # CSS will target this container and make it a flex-wrap row.
-            with st.container(key=f"ROW_CONTAINER_{row_letter}"):
-                for i, item in enumerate(layout):
+            # Native Streamlit columns - Our CSS forces these to NOT stack on mobile
+            cols = st.columns(len(layout))
+            for i, item in enumerate(layout):
+                with cols[i]:
                     if item == "AISLE":
-                        st.markdown('<div class="map-aisle"></div>', unsafe_allow_html=True)
+                        _html('<div class="map-aisle"></div>')
                     else:
                         seat = f"{row_letter}{item}"
                         taken = statuses.get(seat, AVAILABLE) != AVAILABLE
                         is_mine = seat in cart
                         
-                        if st.button(str(item), key=f"seatbtn_{seat}", disabled=taken, type="primary" if is_mine else "secondary"):
+                        if st.button(str(item), key=f"btn_{seat}", disabled=taken, type="primary" if is_mine else "secondary"):
                             if is_mine: cart.remove(seat)
                             else: cart.append(seat)
                             st.rerun()
