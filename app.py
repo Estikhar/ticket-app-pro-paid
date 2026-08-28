@@ -771,107 +771,112 @@ def inject_theme(intro: bool = False) -> None:
     .tier-price {{ font-size:1.6rem; font-weight:900; line-height:1.15; font-variant-numeric:tabular-nums; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
     .tier-rows {{ font-size:.60rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
 
-    /* ============ THE ULTIMATE WHITE SEATING BOX & HORIZONTAL SCROLL HACK ============ */
-    
-    /* 1. The Unified White Box Wrapper */
-    .st-key-white_seating_box {{
+    /* ========================================================
+       THE "SILICON VALLEY" BULLETPROOF HORIZONTAL GRID HACK
+       ======================================================== */
+    /* 1. The White Box wrapper */
+    .st-key-white_seating_box > div[data-testid="stVerticalBlock"] {{
         background-color: #FFFFFF !important;
-        border-radius: 16px !important;
-        padding: 15px 5px !important;
-        margin-bottom: 20px !important;
+        border-radius: 20px !important;
+        padding: 20px 10px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
     }}
-    /* Force inner container to also be white or transparent so it doesn't mask it */
-    .st-key-white_seating_box > div {{
-        background-color: transparent !important;
-    }}
+    .st-key-white_seating_box {{ color: #111111 !important; }}
 
-    /* 2. Force Streamlit to NEVER stack these containers (The Ladder Killer) */
-    div[class*="st-key-maprow_"] > div[data-testid="stVerticalBlock"] {{
+    /* 2. Target the exact container holding our rows using the hidden marker */
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) {{
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: nowrap !important; /* Forces a single straight line */
-        overflow-x: auto !important; /* Swipe horizontally */
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
         overflow-y: hidden !important;
-        justify-content: flex-start !important; /* Pack from left to right */
         align-items: center !important;
-        gap: 6px !important;
-        padding-bottom: 12px !important; /* Space for scrollbar */
+        padding-bottom: 12px !important; /* Space for horizontal scroll */
         width: 100% !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
     }}
-    
-    /* 3. Stop Streamlit Element Containers from taking full width */
-    div[class*="st-key-maprow_"] [data-testid="stElementContainer"] {{
-        width: auto !important;
-        min-width: max-content !important;
-        flex: 0 0 auto !important;
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper)::-webkit-scrollbar {{
+        display: none !important;
     }}
 
-    /* 4. Square Buttons */
-    div[class*="st-key-seatbtn_"] button {{
+    /* 3. Lock the width of every column inside this row */
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) > div[data-testid="column"] {{
+        flex: 0 0 32px !important;
         width: 32px !important;
-        height: 32px !important;
-        min-height: 32px !important;
+        min-width: 32px !important;
+        padding: 0 2px !important;
+    }}
+
+    @media (max-width: 640px) {{
+        div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) > div[data-testid="column"] {{
+            flex: 0 0 26px !important;
+            width: 26px !important;
+            min-width: 26px !important;
+            padding: 0 1px !important;
+        }}
+    }}
+
+    /* 4. The Seat Buttons */
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button {{
+        width: 100% !important;
+        aspect-ratio: 1/1 !important; /* Perfect square */
+        height: auto !important;
+        min-height: 0 !important;
         padding: 0 !important;
         margin: 0 !important;
-        border-radius: 6px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        border-radius: 4px !important;
         transition: transform .07s ease, box-shadow .18s ease, background-color .18s ease !important;
     }}
-    div[class*="st-key-seatbtn_"] button p {{
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button p {{
         font-size: 11px !important;
         font-weight: 800 !important;
         margin: 0 !important;
-        padding: 0 !important;
+    }}
+    @media (max-width: 640px) {{
+        div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button p {{
+            font-size: 9px !important;
+        }}
     }}
 
-    /* BUTTON COLORS AS REQUESTED */
-    
-    /* Available - GREEN */
-    div[class*="st-key-seatbtn_"] button[kind="secondary"] {{
+    /* ========================================================
+       BUTTON COLORS (GREEN = FREE, GOLD = YOU, GREY = TAKEN)
+       ======================================================== */
+    /* Available (Green) */
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button[kind="secondary"] {{
         border: 1px solid #34D07A !important;
         background-color: rgba(52,208,122,0.15) !important;
         color: #000000 !important;
     }}
-    div[class*="st-key-seatbtn_"] button[kind="secondary"] p {{ color: #000000 !important; }}
-    div[class*="st-key-seatbtn_"] button[kind="secondary"]:hover:not(:disabled) {{ 
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button[kind="secondary"] p {{ color: #000000 !important; }}
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button[kind="secondary"]:hover:not(:disabled) {{ 
         background-color: rgba(52,208,122,0.4) !important; 
         transform: translateY(-2px); 
     }}
-    
-    /* Selected - GOLD */
-    div[class*="st-key-seatbtn_"] button[kind="primary"], 
-    div[class*="st-key-seatbtn_"] [data-testid="stBaseButton-primary"] {{
+
+    /* Selected (Gold) */
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button[kind="primary"] {{
         background: linear-gradient(135deg, #D4AF37, #FFF2CD, #AA771C) !important;
         border: none !important;
         box-shadow: 0 4px 10px rgba(212,175,55,0.4) !important;
     }}
-    div[class*="st-key-seatbtn_"] button[kind="primary"] p {{ color: #000000 !important; }}
-    
-    /* Disabled (Booked/Reserved) Seats - GREY */
-    div[class*="st-key-seatbtn_"] button:disabled {{
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button[kind="primary"] p {{ color: #000000 !important; }}
+
+    /* Taken/Blocked (Grey) */
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button:disabled {{
         border: 1px solid #CCCCCC !important;
         background-color: #E8E8E8 !important;
         cursor: not-allowed !important;
     }}
-    div[class*="st-key-seatbtn_"] button:disabled p {{ 
+    div[data-testid="stHorizontalBlock"]:has(.seat-row-wrapper) button:disabled p {{ 
         color: #999999 !important; 
-        text-decoration: none !important; 
     }}
 
     /* Invisible Aisle Spacer */
-    .map-aisle {{ width: 20px !important; height: 10px !important; display: inline-block; }}
-
-    /* Mobile Squeeze for Seats */
-    @media (max-width: 640px) {{
-        div[class*="st-key-maprow_"] > div[data-testid="stVerticalBlock"] {{ gap: 4px !important; }}
-        div[class*="st-key-seatbtn_"] button {{
-            width: 26px !important; height: 26px !important; min-height: 26px !important; border-radius: 4px !important;
-        }}
-        div[class*="st-key-seatbtn_"] button p {{ font-size: 10px !important; }}
-        .map-aisle {{ width: 14px !important; }}
-    }}
+    .map-aisle {{ width: 100% !important; height: 10px !important; }}
 
     /* STAGE and TEXT styling inside White Box */
     .stage {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.7rem; font-weight:900; letter-spacing:.5em; color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
@@ -884,6 +889,7 @@ def inject_theme(intro: bool = False) -> None:
     .st-key-white_seating_box .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
     .st-key-white_seating_box .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
     
+    /* Match Legend colors to the new seat colors */
     .lg-free {{ border:1px solid #34D07A; background:rgba(52,208,122,0.15); }}
     .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 2px 6px rgba(212,175,55,.6); }}
     .lg-gone {{ border:1px solid #CCCCCC; background:#E8E8E8; }}
@@ -997,7 +1003,7 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
-    # The Single White Box Container
+    # The White Box Container
     with st.container(key="white_seating_box"):
         _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
@@ -1006,10 +1012,14 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
             price = prices[tier]
             _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
 
-            # NO st.columns used! Just direct buttons inside a container.
-            # CSS will target this container and make it a horizontal swipeable row.
-            with st.container(key=f"maprow_{row_letter}"):
-                for item in layout:
+            # We use st.columns but our CSS completely blocks them from stacking
+            cols = st.columns(len(layout))
+            # Injecting the invisible marker so our CSS targets this EXACT row container
+            with cols[0]:
+                st.markdown('<div class="seat-row-wrapper" style="width:0;height:0;margin:0;padding:0;overflow:hidden;"></div>', unsafe_allow_html=True)
+            
+            for i, item in enumerate(layout):
+                with cols[i]:
                     if item == "AISLE":
                         st.markdown('<div class="map-aisle"></div>', unsafe_allow_html=True)
                     else:
