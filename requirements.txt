@@ -7,3 +7,4 @@ st-gsheets-connection
 qrcode
 
 Pillow
+opencv-python-headless
