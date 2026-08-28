@@ -1206,14 +1206,94 @@ def inject_theme(intro: bool = False) -> None:
             font-variant-numeric:tabular-nums; }}
 
     /* ============ TIER CARDS ============ */
-    .tier-grid {{ display:flex; flex-wrap:wrap; gap:.7rem; margin-top:.85rem; }}
-    .tier {{ flex:1 1 150px; padding:.9rem 1.1rem; border-radius:14px;
-             border:1px solid rgba(212,175,55,.28);
-             background:rgba(255,255,255,.03); }}
-    .tier-price {{ font-size:1.65rem; font-weight:900; color:{GOLD_SOFT};
-                   font-variant-numeric:tabular-nums; line-height:1.15; }}
-    .tier-rows {{ font-size:.68rem; letter-spacing:.14em; text-transform:uppercase;
+    .tier-grid {{ display:flex; flex-wrap:wrap; gap:.75rem; margin-top:.9rem; }}
+    .tier {{ position:relative; overflow:hidden;
+             flex:1 1 200px; min-width:190px; max-width:100%;
+             padding:1rem 1.15rem; border-radius:15px;
+             border:1px solid rgba(212,175,55,.34);
+             background:rgba(255,255,255,.03);
+             box-shadow:inset 0 1px 0 rgba(255,255,255,.06); }}
+    .tier::before {{ content:""; position:absolute; top:0; left:0; right:0;
+                     height:3px;
+                     background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); }}
+    /* The metal lives in the numeral, not in a flat fill — a solid gold panel
+       reads as dull yellow at small sizes, which is what the client saw. */
+    .tier-price {{ font-size:1.8rem; font-weight:900; line-height:1.15;
+                   font-variant-numeric:tabular-nums;
+                   background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
+                   -webkit-background-clip:text; background-clip:text;
+                   -webkit-text-fill-color:transparent;
+                   filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
+    .tier-rows {{ font-size:.66rem; letter-spacing:.14em; text-transform:uppercase;
                   color:rgba(236,231,218,.45); }}
+    /* Phones get one full-width card per line instead of three unreadable
+       slivers — flex-basis alone still lets them squeeze below legibility. */
+    @media (max-width:640px) {{
+        .tier {{ flex:1 1 100%; min-width:0; padding:.85rem 1rem; }}
+        .tier-price {{ font-size:1.55rem; }}
+    }}
+
+    /* ============ SEAT MAP ============ */
+    /* Real st.button widgets, restyled. components.v1.html renders in a
+       sandboxed iframe with no channel back to Python, so an HTML/CSS-grid map
+       could be clicked but never report the click; the only workaround rewrites
+       window.parent.location, which forces a navigation and destroys
+       st.session_state — taking the wizard with it. Three states are carried by
+       Streamlit's own attributes (secondary / primary / disabled), so the whole
+       map needs four CSS rules rather than one per seat. */
+    .screen {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center;
+               font-size:.6rem; font-weight:900; letter-spacing:.55em;
+               color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px;
+               background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
+               box-shadow:0 14px 44px rgba(212,175,55,.4); }}
+    .rowtag {{ font-size:.9rem; font-weight:900; color:{GOLD_SOFT};
+               letter-spacing:.06em; line-height:1; }}
+    .rowtag small {{ display:block; font-size:.5rem; letter-spacing:.16em;
+                     color:rgba(236,231,218,.38); font-weight:800; }}
+    .legend {{ display:flex; flex-wrap:wrap; gap:1.1rem; margin:.2rem 0 1rem;
+               font-size:.64rem; letter-spacing:.14em; text-transform:uppercase;
+               color:rgba(236,231,218,.5); }}
+    .legend i {{ display:inline-block; width:15px; height:15px; border-radius:5px;
+                 margin-right:.45rem; vertical-align:-3px; }}
+    .lg-free {{ border:1px solid rgba(212,175,55,.6);
+                background:rgba(212,175,55,.08); }}
+    .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
+                box-shadow:0 0 12px rgba(212,175,55,.7); }}
+    .lg-gone {{ border:1px solid rgba(255,255,255,.08);
+                background:rgba(255,255,255,.03); }}
+
+    div[class*="st-key-seat_"] button {{
+        min-height:36px !important; height:36px !important;
+        padding:0 !important; border-radius:8px !important;
+        font-size:.7rem !important; font-weight:800 !important;
+        letter-spacing:0 !important;
+        border:1px solid rgba(212,175,55,.55) !important;
+        background-color:rgba(212,175,55,.07) !important;
+        background-image:none !important;
+        color:#F1E4BC !important; box-shadow:none !important;
+        transition:transform .07s ease, box-shadow .18s ease,
+                   background-color .18s ease; }}
+    div[class*="st-key-seat_"] button:hover:not(:disabled) {{
+        background-color:rgba(212,175,55,.24) !important;
+        border-color:{GOLD} !important;
+        box-shadow:0 0 16px rgba(212,175,55,.6) !important;
+        transform:translateY(-1px); }}
+    div[class*="st-key-seat_"] button:disabled {{
+        border:1px solid rgba(255,255,255,.07) !important;
+        background-color:rgba(255,255,255,.028) !important;
+        color:rgba(236,231,218,.16) !important; opacity:1 !important;
+        cursor:not-allowed !important; }}
+    div[class*="st-key-seat_"] button[kind="primary"],
+    div[class*="st-key-seat_"] [data-testid="stBaseButton-primary"] {{
+        background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important;
+        background-color:{GOLD} !important; color:#12100C !important;
+        border:none !important;
+        box-shadow:0 0 22px rgba(212,175,55,.85) !important; }}
+    @media (max-width:640px) {{
+        div[class*="st-key-seat_"] button {{
+            min-height:30px !important; height:30px !important;
+            font-size:.58rem !important; border-radius:6px !important; }}
+    }}
     /* ============ RECEIPT ============ */
     /* Reads as a torn-off counterfoil: warm gradient, gold hairline, a notched
        perforation down the right edge and tabular numerals so the amount lines
@@ -1297,31 +1377,38 @@ def inject_theme(intro: bool = False) -> None:
         text-shadow:0 0 16px rgba(212,175,55,.45) !important; }}
 
     /* ---------- NEON lane: text + number inputs ---------- */
+    /* Deep dark fill so the glow reads as emitted light rather than a tinted
+       panel — a translucent green box just looks washed out. The inset shadow
+       is what makes the border feel lit from inside instead of outlined. */
     .stTextInput > div > div,
     .stTextInput [data-baseweb="input"],
     .stTextInput [data-baseweb="base-input"],
     [data-testid="stTextInputRootElement"],
     .stNumberInput [data-baseweb="input"],
     [data-testid="stNumberInputContainer"] {{
-        background-color:rgba(57,255,20,0.12) !important;
+        background-color:#050D07 !important;
         background-image:none !important;
         border:2px solid #39FF14 !important;
         border-radius:14px !important;
-        box-shadow:0 0 15px rgba(57,255,20,0.4) !important;
+        box-shadow:0 0 10px rgba(57,255,20,0.5),
+                   inset 0 0 5px rgba(57,255,20,0.3) !important;
         transition:box-shadow .22s ease, background-color .22s ease,
                    border-color .22s ease; }}
     .stTextInput > div > div:hover,
     .stTextInput [data-baseweb="input"]:hover,
     .stNumberInput [data-baseweb="input"]:hover {{
-        background-color:rgba(57,255,20,0.17) !important;
-        box-shadow:0 0 20px rgba(57,255,20,0.6) !important; }}
+        background-color:#071609 !important;
+        box-shadow:0 0 18px rgba(57,255,20,0.68),
+                   inset 0 0 9px rgba(57,255,20,0.38) !important; }}
     .stTextInput > div > div:focus-within,
     .stTextInput [data-baseweb="input"]:focus-within,
     [data-testid="stTextInputRootElement"]:focus-within,
     .stNumberInput [data-baseweb="input"]:focus-within {{
-        background-color:rgba(57,255,20,0.18) !important;
+        background-color:#08210C !important;
         border-color:#7CFF5A !important;
-        box-shadow:0 0 25px rgba(57,255,20,0.8) !important; }}
+        box-shadow:0 0 30px rgba(57,255,20,0.9),
+                   0 0 62px rgba(57,255,20,0.42),
+                   inset 0 0 14px rgba(57,255,20,0.5) !important; }}
 
     .stTextInput input, .stTextInput input[type="text"],
     .stTextInput input[type="password"], .stNumberInput input {{
@@ -1330,19 +1417,18 @@ def inject_theme(intro: bool = False) -> None:
         padding:0 1.3rem !important;
         background:transparent !important; background-color:transparent !important;
         border:none !important; outline:none !important; box-shadow:none !important;
-        color:#EAFFE4 !important; caret-color:#39FF14 !important;
-        -webkit-text-fill-color:#EAFFE4 !important;
-        text-shadow:0 0 12px rgba(57,255,20,.35) !important; }}
-    /* At 1.32rem a faint placeholder reads as a rendering fault. */
+        color:#D6FFCB !important; caret-color:#39FF14 !important;
+        -webkit-text-fill-color:#D6FFCB !important;
+        text-shadow:0 0 14px rgba(57,255,20,.5) !important; }}
     .stTextInput input::placeholder, .stNumberInput input::placeholder {{
-        color:rgba(215,255,205,.45) !important; font-weight:400 !important;
+        color:rgba(190,255,175,.4) !important; font-weight:400 !important;
         font-size:.98rem !important; letter-spacing:.04em !important;
         text-shadow:none !important;
-        -webkit-text-fill-color:rgba(215,255,205,.45) !important; }}
+        -webkit-text-fill-color:rgba(190,255,175,.4) !important; }}
     .stNumberInput button {{
         background:rgba(57,255,20,.14) !important;
         border:1px solid rgba(57,255,20,.5) !important;
-        color:#EAFFE4 !important; }}
+        color:#D6FFCB !important; }}
 
     /* ---------- GOLD lane: seat selection ---------- */
     .stSelectbox [data-baseweb="select"] > div,
@@ -1572,7 +1658,6 @@ def hero() -> None:
       <div class="chips">
         <span class="chip"><b>Venue</b><span>{VENUE}</span></span>
         <span class="chip"><b>Date</b><span>{EVENT_DATE}</span></span>
-        <span class="chip"><b>Time</b><span>{EVENT_TIME}</span></span>
         {maps_chip}
       </div>
     </div>
@@ -1756,10 +1841,10 @@ def render_receipt(seat_id: str, amount: int, locked: bool) -> None:
 
 
 def step_choose(df: pd.DataFrame, prices: dict[str, int]) -> None:
+    # The live tracker is deliberately NOT here — sell-through numbers are
+    # organiser information, and a public "142 of 157 gone" either panics or
+    # deflates a buyer. It lives in Admin.
     tier_banner(prices)
-    sold = int(((df["status"] == BOOKED) & (~df.apply(is_house_block, axis=1))).sum())
-    pending = int((df["status"] == PENDING).sum())
-    tracker(sold, pending, SELLABLE_SEATS)
 
     if not available_seats(df):
         st.error("Every seat has been taken or is awaiting verification.", icon="🎭")
@@ -1787,48 +1872,82 @@ def step_choose(df: pd.DataFrame, prices: dict[str, int]) -> None:
 # --- STEP 2 -------------------------------------------------------------------
 
 
+def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> str | None:
+    """
+    Clickable auditorium. Returns a seat id if one was tapped this run.
+
+    Ten seats per line, so a 20-seat row occupies two lines. Twenty across would
+    give roughly 16px per target on a 380px phone — under the ~44px touch
+    guidance and unusable. Ten keeps them tappable.
+    """
+    statuses = dict(zip(df["seat_id"], df["status"]))
+    selected = st.session_state.get("_locked_seat")
+    clicked: str | None = None
+
+    _html('<div class="screen">S C R E E N</div>')
+    _html("""
+    <div class="legend">
+      <span><i class="lg-free"></i>Available</span>
+      <span><i class="lg-sel"></i>Your seat</span>
+      <span><i class="lg-gone"></i>Taken</span>
+    </div>
+    """)
+
+    for row_letter, cap in ROW_CAPACITIES.items():
+        tier = ROW_TIER[row_letter]
+        for offset in range(0, cap, 10):
+            numbers = list(range(offset + 1, min(offset + 11, cap + 1)))
+            columns = st.columns([0.62] + [1] * 10, gap="small",
+                                 vertical_alignment="center")
+            if offset == 0:
+                with columns[0]:
+                    _html(f'<div class="rowtag">{row_letter}'
+                          f'<small>{tier}</small></div>')
+            for slot, number in enumerate(numbers, start=1):
+                seat = f"{row_letter}{number}"
+                taken = statuses.get(seat, AVAILABLE) != AVAILABLE
+                is_mine = seat == selected
+                pressed = columns[slot].button(
+                    str(number),
+                    key=f"seat_{seat}",
+                    disabled=taken,
+                    type="primary" if is_mine else "secondary",
+                    width="stretch",
+                    help=(f"{seat} · sold" if taken
+                          else f"{seat} · {tier} · ₹{prices[tier]:,}"),
+                )
+                if pressed:
+                    clicked = seat
+            # keep short lines aligned to the same 10-column rhythm
+            for slot in range(len(numbers) + 1, 11):
+                columns[slot].empty()
+
+    return clicked
+
+
 def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
-    open_rows = sorted({seat_row(s) for s in available_seats(df)})
-    if not open_rows:
+    if not available_seats(df):
         st.error("Every seat has been taken or is awaiting verification.", icon="🎭")
         return
 
     _html("""
     <div class="glass" style="padding-bottom:.8rem;">
-      <span class="pill">SELECT YOUR SEAT</span>
+      <span class="pill">CHOOSE YOUR SEAT</span>
       <div class="micro" style="margin-top:1.05rem;">
-        Rows are priced by category. Only seats still open are listed.
+        Tap any available seat. Greyed seats are already taken.
+        Price is set by the row.
       </div>
     </div>
     """)
 
-    left, right = st.columns(2, gap="medium")
-    with left:
-        row_letter = st.selectbox(
-            "Row", open_rows,
-            format_func=lambda r: f"Row {r}  ·  {ROW_TIER[r]}  ·  ₹{prices[ROW_TIER[r]]:,}",
-            key=SEL_ROW)
-    seats_here = available_seats(df, row_letter)
-    with right:
-        seat_id = st.selectbox("Seat", seats_here,
-                               format_func=lambda s: f"Seat {s}", key=SEL_SEAT)
+    clicked = render_seat_map(df, prices)
 
-    if not seat_id:
-        st.warning("No seats left in that row — pick another.", icon="⚠️")
-        return
+    if clicked:
+        st.session_state["_locked_seat"] = clicked
+        goto_step(3)
 
-    st.caption(f"{len(seats_here)} seat(s) still open in row {row_letter}.")
-    render_receipt(seat_id, prices[seat_tier(seat_id)], locked=False)
-
-    proceed, back = st.columns([2, 1], gap="small")
-    with proceed:
-        if st.button("CONFIRM SEAT & PROCEED TO PAY", type="primary",
-                     width="stretch", key="lock_seat"):
-            st.session_state["_locked_seat"] = seat_id
-            goto_step(3)
-    with back:
-        if st.button("Back", width="stretch", key="back_to_1"):
-            goto_step(1)
+    if st.button("Back", width="content", key="back_to_1"):
+        goto_step(1)
 
 
 # --- STEP 3 -------------------------------------------------------------------
@@ -2253,6 +2372,9 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
     b.metric("Pending", pending)
     c.metric("Open", max(SELLABLE_SEATS - sold - pending, 0))
     d.metric("Revenue", f"₹{revenue:,}")
+
+    # Moved off the public tab — sell-through is organiser information.
+    tracker(sold, pending, SELLABLE_SEATS)
 
     queue_tab, price_tab, gate_tab, roster_tab, danger_tab = st.tabs(
         ["VERIFY", "PRICING", "GATE", "ROSTER", "DANGER"])
