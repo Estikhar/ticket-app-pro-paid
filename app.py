@@ -1214,12 +1214,62 @@ def inject_theme(intro: bool = False) -> None:
                    font-variant-numeric:tabular-nums; line-height:1.15; }}
     .tier-rows {{ font-size:.68rem; letter-spacing:.14em; text-transform:uppercase;
                   color:rgba(236,231,218,.45); }}
-    .seatbox {{ display:flex; flex-wrap:wrap; gap:1.4rem; align-items:flex-end;
-                padding:1.1rem 1.3rem; border-radius:16px;
-                border:1px solid rgba(144,238,144,.4);
-                background:rgba(144,238,144,.06); margin:.2rem 0 1rem; }}
-    .seatbox .big {{ font-size:2.5rem; font-weight:900; color:{LIME_TEXT};
-                     line-height:1; font-variant-numeric:tabular-nums; }}
+    /* ============ RECEIPT ============ */
+    /* Reads as a torn-off counterfoil: warm gradient, gold hairline, a notched
+       perforation down the right edge and tabular numerals so the amount lines
+       up like a printed receipt rather than a status div. */
+    .receipt {{ position:relative; overflow:hidden; margin:.3rem 0 1.2rem;
+                padding:1.35rem 1.6rem; border-radius:18px;
+                background:linear-gradient(135deg, rgba(212,175,55,.16) 0%,
+                           rgba(212,175,55,.05) 42%, rgba(255,255,255,.02) 100%);
+                border:1px solid rgba(212,175,55,.55);
+                box-shadow:0 18px 46px rgba(0,0,0,.55),
+                           inset 0 1px 0 rgba(255,255,255,.10),
+                           0 0 34px rgba(212,175,55,.12); }}
+    .receipt::before {{ content:""; position:absolute; top:0; left:0; right:0;
+                        height:2px; background:{GOLD_CSS}; opacity:.9; }}
+    .receipt::after {{ content:""; position:absolute; top:12%; bottom:12%;
+                       right:23%; width:1px;
+                       background:repeating-linear-gradient(to bottom,
+                           rgba(212,175,55,.75) 0 6px, transparent 6px 13px); }}
+    .r-grid {{ display:flex; flex-wrap:wrap; gap:1.9rem; align-items:flex-end; }}
+    .r-cell {{ min-width:96px; }}
+    .r-key {{ display:block; font-size:.56rem; font-weight:900;
+              letter-spacing:.3em; text-transform:uppercase;
+              color:rgba(236,231,218,.5); margin-bottom:.3rem; }}
+    .r-seat {{ font-family:'Playfair Display', Georgia, serif;
+               font-size:3rem; font-weight:900; line-height:1;
+               background:{GOLD_CSS}; -webkit-background-clip:text;
+               background-clip:text; -webkit-text-fill-color:transparent;
+               filter:drop-shadow(0 4px 18px rgba(212,175,55,.35)); }}
+    .r-tier {{ font-size:1.3rem; font-weight:900; color:{GOLD_SOFT};
+               letter-spacing:.1em; }}
+    .r-amt {{ font-size:2.1rem; font-weight:900; color:{NEON}; line-height:1;
+              font-variant-numeric:tabular-nums;
+              text-shadow:0 0 24px rgba(52,208,122,.4); }}
+    .r-note {{ font-size:.68rem; letter-spacing:.1em; margin-top:.9rem;
+               color:rgba(236,231,218,.42); }}
+
+    /* ============ STEPPER ============ */
+    .stepper {{ display:flex; align-items:center; gap:.55rem; margin:.2rem 0 1.1rem; }}
+    .stp {{ display:flex; align-items:center; gap:.5rem; }}
+    .stp-dot {{ width:30px; height:30px; border-radius:50%; display:flex;
+                align-items:center; justify-content:center; font-size:.76rem;
+                font-weight:900; border:1px solid rgba(212,175,55,.35);
+                color:rgba(236,231,218,.45); background:rgba(255,255,255,.03); }}
+    .stp-txt {{ font-size:.6rem; font-weight:800; letter-spacing:.2em;
+                text-transform:uppercase; color:rgba(236,231,218,.4); }}
+    .stp-bar {{ flex:1; height:1px; background:rgba(212,175,55,.22); }}
+    .stp.on .stp-dot {{ background:{GOLD_CSS}; color:#12100C;
+                        border-color:transparent;
+                        box-shadow:0 0 18px rgba(212,175,55,.6); }}
+    .stp.on .stp-txt {{ color:{GOLD_SOFT}; }}
+    .stp.done .stp-dot {{ border-color:{GOLD}; color:{GOLD_SOFT};
+                          background:rgba(212,175,55,.12); }}
+    .stp.done .stp-txt {{ color:rgba(232,204,107,.7); }}
+    @media (max-width:640px) {{ .stp-txt {{ display:none; }}
+                                .receipt::after {{ display:none; }}
+                                .r-grid {{ gap:1.2rem; }} }}
     .notice {{ border-radius:18px; padding:1.5rem 1.7rem; margin:.4rem 0 1rem;
                border:1px solid rgba(240,169,59,.55);
                background:linear-gradient(160deg, rgba(240,169,59,.16),
@@ -1230,91 +1280,103 @@ def inject_theme(intro: bool = False) -> None:
     .notice p {{ font-size:.95rem; line-height:1.7;
                  color:rgba(245,238,224,.86); margin:0; }}
 
-    /* ============ FORM CONTROLS — luminous green channel ============ */
-    /* Gold is the brand; green is "actionable". Splitting the two ends the
-       ambiguity of gold-on-gold inputs and gives the form its own visual
-       lane, which is what makes it obvious where to type. Every BaseWeb DOM
-       generation is covered — styling the bare <input> alone leaves BaseWeb's
-       own grey container visible underneath. */
+    /* ============ FORM CONTROLS ============ */
+    /* Two deliberate lanes, because the brief pulls in two directions:
+         SELECTBOXES (step 2, choosing a seat)  -> GOLD. It is a brand moment.
+         TEXT INPUTS (step 3, entering data)    -> NEON. It is an action.
+       Labels are gold/white in BOTH lanes — neon-on-neon labels are what made
+       the old form read as a terminal rather than a ticketing portal. */
+
     .stTextInput label, .stTextInput label p,
     .stNumberInput label, .stNumberInput label p,
     .stSelectbox label, .stSelectbox label p {{
-        font-size:0.94rem !important; font-weight:800 !important;
-        letter-spacing:.13em !important; text-transform:uppercase !important;
-        color:{LIME_TEXT} !important; opacity:1 !important;
+        font-size:0.9rem !important; font-weight:800 !important;
+        letter-spacing:.16em !important; text-transform:uppercase !important;
+        color:#FFF4D6 !important; opacity:1 !important;
         margin-bottom:.55rem !important;
-        text-shadow:0 0 14px rgba(144,238,144,.45) !important; }}
+        text-shadow:0 0 16px rgba(212,175,55,.45) !important; }}
 
+    /* ---------- NEON lane: text + number inputs ---------- */
     .stTextInput > div > div,
     .stTextInput [data-baseweb="input"],
     .stTextInput [data-baseweb="base-input"],
     [data-testid="stTextInputRootElement"],
     .stNumberInput [data-baseweb="input"],
-    .stNumberInput [data-testid="stNumberInputContainer"],
-    .stSelectbox [data-baseweb="select"] > div,
-    .stSelectbox [data-baseweb="select"] div[role="button"] {{
-        background-color:rgba(144,238,144,0.05) !important;
+    [data-testid="stNumberInputContainer"] {{
+        background-color:rgba(57,255,20,0.12) !important;
         background-image:none !important;
-        border:1px solid rgba(144,238,144,0.5) !important;
+        border:2px solid #39FF14 !important;
         border-radius:14px !important;
-        box-shadow:inset 0 1px 0 rgba(200,255,200,.10),
-                   0 0 0 0 rgba(144,238,144,0) !important;
-        transition:border-color .2s ease, box-shadow .26s ease,
-                   background-color .2s ease; }}
-
+        box-shadow:0 0 15px rgba(57,255,20,0.4) !important;
+        transition:box-shadow .22s ease, background-color .22s ease,
+                   border-color .22s ease; }}
     .stTextInput > div > div:hover,
     .stTextInput [data-baseweb="input"]:hover,
-    .stNumberInput [data-baseweb="input"]:hover,
-    .stSelectbox [data-baseweb="select"] > div:hover {{
-        background-color:rgba(144,238,144,0.09) !important;
-        border-color:rgba(144,238,144,0.85) !important; }}
-
+    .stNumberInput [data-baseweb="input"]:hover {{
+        background-color:rgba(57,255,20,0.17) !important;
+        box-shadow:0 0 20px rgba(57,255,20,0.6) !important; }}
     .stTextInput > div > div:focus-within,
     .stTextInput [data-baseweb="input"]:focus-within,
     [data-testid="stTextInputRootElement"]:focus-within,
-    .stNumberInput [data-baseweb="input"]:focus-within,
-    .stSelectbox [data-baseweb="select"] > div:focus-within {{
-        background-color:rgba(144,238,144,0.12) !important;
-        border-color:#7CFF7C !important;
-        box-shadow:0 0 0 4px rgba(144,238,144,.18),
-                   0 0 28px rgba(144,238,144,.55),
-                   inset 0 1px 0 rgba(200,255,200,.2) !important; }}
+    .stNumberInput [data-baseweb="input"]:focus-within {{
+        background-color:rgba(57,255,20,0.18) !important;
+        border-color:#7CFF5A !important;
+        box-shadow:0 0 25px rgba(57,255,20,0.8) !important; }}
 
     .stTextInput input, .stTextInput input[type="text"],
     .stTextInput input[type="password"], .stNumberInput input {{
-        height:74px !important; font-size:1.35rem !important;
-        font-weight:600 !important; letter-spacing:.02em !important;
-        padding:0 1.35rem !important;
+        height:72px !important; font-size:1.32rem !important;
+        font-weight:700 !important; letter-spacing:.03em !important;
+        padding:0 1.3rem !important;
         background:transparent !important; background-color:transparent !important;
         border:none !important; outline:none !important; box-shadow:none !important;
-        color:{LIME_TEXT} !important; caret-color:#7CFF7C !important;
-        -webkit-text-fill-color:{LIME_TEXT} !important; }}
-    /* At 1.35rem a faint placeholder reads as a rendering fault. */
+        color:#EAFFE4 !important; caret-color:#39FF14 !important;
+        -webkit-text-fill-color:#EAFFE4 !important;
+        text-shadow:0 0 12px rgba(57,255,20,.35) !important; }}
+    /* At 1.32rem a faint placeholder reads as a rendering fault. */
     .stTextInput input::placeholder, .stNumberInput input::placeholder {{
-        color:rgba(200,255,200,.42) !important; font-weight:400 !important;
-        font-size:1rem !important; letter-spacing:.04em !important;
-        -webkit-text-fill-color:rgba(200,255,200,.42) !important; }}
+        color:rgba(215,255,205,.45) !important; font-weight:400 !important;
+        font-size:.98rem !important; letter-spacing:.04em !important;
+        text-shadow:none !important;
+        -webkit-text-fill-color:rgba(215,255,205,.45) !important; }}
+    .stNumberInput button {{
+        background:rgba(57,255,20,.14) !important;
+        border:1px solid rgba(57,255,20,.5) !important;
+        color:#EAFFE4 !important; }}
 
-    .stSelectbox [data-baseweb="select"] {{ font-size:1.2rem !important; }}
+    /* ---------- GOLD lane: seat selection ---------- */
+    .stSelectbox [data-baseweb="select"] > div,
     .stSelectbox [data-baseweb="select"] div[role="button"] {{
-        min-height:70px !important; padding:0 1.2rem !important;
-        color:{LIME_TEXT} !important; font-weight:700 !important;
-        font-size:1.18rem !important; }}
-    .stSelectbox [data-baseweb="select"] svg {{ fill:{LIME} !important; }}
+        background-color:rgba(212,175,55,0.08) !important;
+        background-image:linear-gradient(180deg, rgba(255,255,255,.05),
+                                         rgba(255,255,255,.01)) !important;
+        border:2px solid rgba(212,175,55,.62) !important;
+        border-radius:14px !important;
+        box-shadow:0 0 15px rgba(212,175,55,.28) !important;
+        min-height:72px !important; padding:0 1.25rem !important;
+        color:#FFF4D6 !important; font-weight:800 !important;
+        font-size:1.18rem !important; letter-spacing:.02em !important;
+        transition:box-shadow .22s ease, border-color .22s ease,
+                   background-color .22s ease; }}
+    .stSelectbox [data-baseweb="select"] > div:hover {{
+        border-color:{GOLD} !important;
+        box-shadow:0 0 22px rgba(212,175,55,.5) !important; }}
+    .stSelectbox [data-baseweb="select"] > div:focus-within {{
+        border-color:#FCF6BA !important;
+        background-color:rgba(212,175,55,.14) !important;
+        box-shadow:0 0 28px rgba(212,175,55,.78) !important; }}
+    .stSelectbox [data-baseweb="select"] svg {{ fill:{GOLD_SOFT} !important; }}
     [data-baseweb="popover"] [role="listbox"] {{
-        background:#0C1410 !important;
-        border:1px solid rgba(144,238,144,.45) !important;
-        border-radius:14px !important; }}
+        background:#12100A !important;
+        border:1px solid rgba(212,175,55,.5) !important;
+        border-radius:14px !important;
+        box-shadow:0 20px 50px rgba(0,0,0,.7) !important; }}
     [data-baseweb="popover"] [role="option"] {{
-        color:{LIME_TEXT} !important; font-size:1.02rem !important;
+        color:#F3E9CE !important; font-size:1.02rem !important;
         font-weight:600 !important; }}
     [data-baseweb="popover"] [role="option"]:hover,
     [data-baseweb="popover"] [aria-selected="true"] {{
-        background:rgba(144,238,144,.16) !important; }}
-    .stNumberInput button {{
-        background:rgba(144,238,144,.12) !important;
-        border:1px solid rgba(144,238,144,.4) !important;
-        color:{LIME_TEXT} !important; }}
+        background:rgba(212,175,55,.18) !important; color:#FFF8E4 !important; }}
 
     /* ============ BUTTONS ============ */
     /* Streamlit renames its button hooks between releases and its default
@@ -1646,96 +1708,189 @@ def validate_booking(name: str, phone: str, utr: str) -> list[str]:
     return errors
 
 
-def render_upi_block(amount: int, seat_id: str) -> None:
-    st.markdown(f"##### Step 1 · Pay ₹{amount:,} for seat {seat_id}")
-    left, right = st.columns([1, 1.15], gap="medium")
-    with left:
-        if UPI_QR_IMG.exists():
-            st.image(str(UPI_QR_IMG), width="stretch")
-        else:
-            _html(
-                '<div class="glass" style="text-align:center;padding:2.2rem 1rem;">'
-                '<span class="eyebrow">UPI QR missing</span>'
-                '<div class="micro" style="margin-top:.6rem;">'
-                'Place <code>upi_qr.png</code> next to app.py.</div></div>')
-    with right:
-        if UPI_ID:
-            st.markdown("**UPI ID**")
-            st.code(UPI_ID, language=None)
-        _html(f"""
-        <div class="micro" style="line-height:1.9;">
-          Scan the QR with any UPI app and pay
-          <b style="color:{GOLD_SOFT};">&#8377;{amount:,}</b> exactly.<br>
-          Then copy the <b style="color:{LIME_TEXT};">12-digit UTR / Transaction
-          ID</b> from your payment app and enter it below.<br>
-          <span style="color:{AMBER};">Pay the exact amount</span> — a mismatch
-          will delay verification.
-        </div>
-        """)
+BOOK_STEP: Final[str] = "_book_step"
+SEL_ROW: Final[str] = "_sel_row_letter"
+SEL_SEAT: Final[str] = "_sel_seat_id"
 
 
-def render_booking(df: pd.DataFrame, prices: dict[str, int]) -> None:
-    hero()
+def goto_step(step: int) -> None:
+    st.session_state[BOOK_STEP] = step
+    st.rerun()
+
+
+def render_stepper(active: int) -> None:
+    labels = ("Choose", "Seat", "Pay")
+    parts = []
+    for index, label in enumerate(labels, start=1):
+        state = "on" if index == active else ("done" if index < active else "")
+        mark = "&#10003;" if index < active else str(index)
+        parts.append(
+            f'<div class="stp {state}"><div class="stp-dot">{mark}</div>'
+            f'<span class="stp-txt">{label}</span></div>')
+        if index < len(labels):
+            parts.append('<div class="stp-bar"></div>')
+    _html(f'<div class="stepper">{"".join(parts)}</div>')
+
+
+def render_receipt(seat_id: str, amount: int, locked: bool) -> None:
+    tier = seat_tier(seat_id)
+    note = ("Seat confirmed for this session. It is released only if someone "
+            "else completes payment first — you will be told immediately."
+            if locked else "Confirm to move on to payment.")
+    _html(f"""
+    <div class="receipt">
+      <div class="r-grid">
+        <div class="r-cell"><span class="r-key">Your seat</span>
+             <div class="r-seat">{seat_id}</div></div>
+        <div class="r-cell"><span class="r-key">Category</span>
+             <div class="r-tier">{tier}</div></div>
+        <div class="r-cell"><span class="r-key">Amount payable</span>
+             <div class="r-amt">&#8377;{amount:,}</div></div>
+      </div>
+      <div class="r-note">{note}</div>
+    </div>
+    """)
+
+
+# --- STEP 1 -------------------------------------------------------------------
+
+
+def step_choose(df: pd.DataFrame, prices: dict[str, int]) -> None:
     tier_banner(prices)
-
     sold = int(((df["status"] == BOOKED) & (~df.apply(is_house_block, axis=1))).sum())
     pending = int((df["status"] == PENDING).sum())
     tracker(sold, pending, SELLABLE_SEATS)
 
+    if not available_seats(df):
+        st.error("Every seat has been taken or is awaiting verification.", icon="🎭")
+        return
+
+    _html(f"""
+    <div class="glass" style="padding-bottom:.8rem;">
+      <span class="pill">HOW IT WORKS</span>
+      <div class="micro" style="margin-top:1.05rem;line-height:2;">
+        <b style="color:{GOLD_SOFT};">1.</b> Pick your row and seat &mdash; the
+        price updates live.<br>
+        <b style="color:{GOLD_SOFT};">2.</b> Pay the exact amount by UPI and
+        enter your 12-digit transaction ID.<br>
+        <b style="color:{GOLD_SOFT};">3.</b> We verify within {VERIFY_HOURS}
+        hours, then your pass unlocks in the
+        <b style="color:{GOLD_SOFT};">Download Ticket</b> tab.
+      </div>
+    </div>
+    """)
+    if st.button("START BOOKING", type="primary", width="stretch",
+                 key="start_booking"):
+        goto_step(2)
+
+
+# --- STEP 2 -------------------------------------------------------------------
+
+
+def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     open_rows = sorted({seat_row(s) for s in available_seats(df)})
     if not open_rows:
         st.error("Every seat has been taken or is awaiting verification.", icon="🎭")
         return
 
-    _html(f"""
-    <div class="glass" style="padding-bottom:.7rem;">
-      <span class="pill">BOOK YOUR SEAT</span>
+    _html("""
+    <div class="glass" style="padding-bottom:.8rem;">
+      <span class="pill">SELECT YOUR SEAT</span>
       <div class="micro" style="margin-top:1.05rem;">
-        Choose a seat, pay the amount shown, then enter your transaction ID.
-        Your pass is issued from the <b>Download Ticket</b> tab once payment is
-        verified &mdash; within {VERIFY_HOURS} hours.
+        Rows are priced by category. Only seats still open are listed.
       </div>
     </div>
     """)
 
-    pick_row, pick_seat = st.columns(2, gap="medium")
-    with pick_row:
+    left, right = st.columns(2, gap="medium")
+    with left:
         row_letter = st.selectbox(
-            "Row",
-            open_rows,
-            format_func=lambda r: (
-                f"Row {r}  ·  {ROW_TIER[r]}  ·  ₹{prices[ROW_TIER[r]]:,}"),
-            key="pick_row",
-        )
+            "Row", open_rows,
+            format_func=lambda r: f"Row {r}  ·  {ROW_TIER[r]}  ·  ₹{prices[ROW_TIER[r]]:,}",
+            key=SEL_ROW)
     seats_here = available_seats(df, row_letter)
-    with pick_seat:
-        seat_id = st.selectbox(
-            "Seat",
-            seats_here,
-            format_func=lambda s: f"Seat {s}",
-            key="pick_seat",
-        )
+    with right:
+        seat_id = st.selectbox("Seat", seats_here,
+                               format_func=lambda s: f"Seat {s}", key=SEL_SEAT)
 
     if not seat_id:
         st.warning("No seats left in that row — pick another.", icon="⚠️")
         return
 
-    tier = seat_tier(seat_id)
-    amount = prices[tier]
+    st.caption(f"{len(seats_here)} seat(s) still open in row {row_letter}.")
+    render_receipt(seat_id, prices[seat_tier(seat_id)], locked=False)
+
+    proceed, back = st.columns([2, 1], gap="small")
+    with proceed:
+        if st.button("CONFIRM SEAT & PROCEED TO PAY", type="primary",
+                     width="stretch", key="lock_seat"):
+            st.session_state["_locked_seat"] = seat_id
+            goto_step(3)
+    with back:
+        if st.button("Back", width="stretch", key="back_to_1"):
+            goto_step(1)
+
+
+# --- STEP 3 -------------------------------------------------------------------
+
+
+def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
+    seat_id = st.session_state.get("_locked_seat")
+    if not seat_id:
+        goto_step(2)
+        return
+
+    # The seat is held in this session, not in the sheet. Re-checking here turns
+    # "your payment failed for no reason" into a clear, early message.
+    current = df[df["seat_id"] == seat_id]
+    if current.empty or current.iloc[0]["status"] != AVAILABLE:
+        st.error(f"Seat {seat_id} was taken while you were deciding. "
+                 "Please choose another — do not pay yet.", icon="🚫")
+        if st.button("PICK ANOTHER SEAT", type="primary", width="stretch",
+                     key="reselect"):
+            goto_step(2)
+        return
+
+    amount = prices[seat_tier(seat_id)]
+    render_receipt(seat_id, amount, locked=True)
+
     _html(f"""
-    <div class="seatbox">
-      <div><span class="eyebrow">Your seat</span>
-           <div class="big">{seat_id}</div></div>
-      <div><span class="eyebrow">Category</span>
-           <div class="big" style="font-size:1.5rem;">{tier}</div></div>
-      <div><span class="eyebrow">Amount payable</span>
-           <div class="big" style="color:{NEON};">&#8377;{amount:,}</div></div>
+    <div class="glass" style="padding-bottom:.9rem;">
+      <span class="pill">STEP 1 &middot; PAY BY UPI</span>
+      <div class="micro" style="margin-top:1rem;">
+        Scan and pay <b style="color:{GOLD_SOFT};">&#8377;{amount:,}</b> exactly.
+        A different amount will delay verification.
+      </div>
     </div>
     """)
 
-    render_upi_block(amount, seat_id)
+    qr_col, info_col = st.columns([1, 1.25], gap="medium")
+    with qr_col:
+        if UPI_QR_IMG.exists():
+            st.image(str(UPI_QR_IMG), width=250)
+        else:
+            _html('<div class="glass" style="text-align:center;padding:2rem 1rem;">'
+                  '<span class="eyebrow">UPI QR missing</span>'
+                  '<div class="micro" style="margin-top:.6rem;">Place '
+                  '<code>upi_qr.png</code> next to app.py.</div></div>')
+    with info_col:
+        if UPI_ID:
+            st.markdown("**UPI ID**")
+            st.code(UPI_ID, language=None)
+        _html(f"""
+        <div class="micro" style="line-height:1.95;">
+          After paying, copy the <b style="color:#8CFF7A;">12-digit UTR /
+          Transaction ID</b> from your UPI app receipt.<br>
+          Keep that receipt until you are inside the venue.
+        </div>
+        """)
 
-    st.markdown("##### Step 2 · Confirm your payment")
+    _html("""
+    <div class="glass" style="padding-bottom:.9rem;margin-top:.4rem;">
+      <span class="pill">STEP 2 &middot; CONFIRM PAYMENT</span>
+    </div>
+    """)
+
     with st.form("book_seat", border=False):
         name = st.text_input("Full Name", max_chars=60,
                              placeholder="Exactly as printed on your ID")
@@ -1745,6 +1900,9 @@ def render_booking(df: pd.DataFrame, prices: dict[str, int]) -> None:
                             placeholder="From your UPI payment receipt")
         submitted = st.form_submit_button("SUBMIT FOR VERIFICATION",
                                           type="primary")
+
+    if st.button("Change seat", width="content", key="back_to_2"):
+        goto_step(2)
 
     if not submitted:
         return
@@ -1769,6 +1927,18 @@ def render_booking(df: pd.DataFrame, prices: dict[str, int]) -> None:
     st.rerun()
 
 
+def render_booking(df: pd.DataFrame, prices: dict[str, int]) -> None:
+    hero()
+    step = int(st.session_state.get(BOOK_STEP, 1))
+    render_stepper(step)
+    if step >= 3:
+        step_pay(df, prices)
+    elif step == 2:
+        step_seat(df, prices)
+    else:
+        step_choose(df, prices)
+
+
 def render_pending_notice() -> None:
     seat = st.session_state.get("_booked_seat", "")
     phone = st.session_state.get("_booked_phone", "")
@@ -1789,7 +1959,8 @@ def render_pending_notice() -> None:
     </div>
     """)
     if st.button("Book another seat (different phone number)", width="stretch"):
-        for key in ("_booked_phone", "_booked_seat"):
+        for key in ("_booked_phone", "_booked_seat", "_locked_seat",
+                    BOOK_STEP, SEL_ROW, SEL_SEAT):
             st.session_state.pop(key, None)
         st.rerun()
 
@@ -2119,8 +2290,9 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
                      disabled=not confirmed, width="stretch"):
             with st.spinner("Re-seeding…"):
                 save_seats(blank_layout())
-            for key in ("tickets", "_lookup", "_auto_dl",
-                        "_booked_phone", "_booked_seat"):
+            for key in ("tickets", "_lookup", "_auto_dl", "_booked_phone",
+                        "_booked_seat", "_locked_seat", BOOK_STEP,
+                        SEL_ROW, SEL_SEAT):
                 st.session_state.pop(key, None)
             st.success(f"Reset. {TOTAL_SEATS} seats seeded, "
                        f"{len(BLOCKED_SEATS)} blocked.", icon="✅")
