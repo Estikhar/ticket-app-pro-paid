@@ -1,8 +1,9 @@
-streamlit>=1.49
-st-gsheets-connection>=0.1.0
-gspread>=6.0.0
-pandas>=2.2
-qrcode>=7.4
-Pillow>=10.1                 # variable-font axes + load_default(size=)
-opencv-python-headless>=4.9  # gate scanner QR decode (optional but recommended)
-# No PDF libraries. The pass is drawn with Pillow and saved as JPEG.
+streamlit
+
+pandas
+
+st-gsheets-connection
+
+qrcode
+
+Pillow
