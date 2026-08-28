@@ -25,6 +25,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from streamlit.components.v1 import html as components_html
 from streamlit_gsheets import GSheetsConnection
 
+# QR decoding for the gate scanner is optional — the rest of the app must run
+# without it rather than refusing to start.
 try:
     import cv2
     import numpy as np
@@ -36,7 +38,7 @@ except Exception:  # noqa: BLE001
 # 1. EXACT REAL-WORLD SEATING MATRIX (LTG AUDITORIUM)
 # =============================================================================
 # Here we define the exact physical layout. "AISLE" creates an invisible physical 
-# gap in the UI to match the real theater map.
+# gap in the UI to match the real theater map. This guarantees exact positioning.
 
 ROW_LAYOUTS: Final[dict[str, list[Any]]] = {
     "A": [20,19,18,17,16,15,14,13,12,11, "AISLE", 10,9,8,7,6,5,4,3,2,1],
@@ -58,6 +60,7 @@ ROW_LAYOUTS: Final[dict[str, list[Any]]] = {
     "Q": [27,26,25,24,23,22,21,20, "AISLE", 19,18,17,16,15,14,13,12,11,10, "AISLE", 9,8,7,6,5,4,3,2,1],
 }
 
+# Generate clean list of just the seat IDs for database logic
 SEAT_ORDER: Final[list[str]] = []
 for row_letter, layout in ROW_LAYOUTS.items():
     for item in layout:
@@ -67,7 +70,7 @@ for row_letter, layout in ROW_LAYOUTS.items():
 SEAT_RANK: Final[dict[str, int]] = {seat: i for i, seat in enumerate(SEAT_ORDER)}
 TOTAL_SEATS: Final[int] = len(SEAT_ORDER)
 
-# PRE-BLOCKED SEATS: A, D, G, H as requested, PLUS entire K-Q section
+# PRE-BLOCKED SEATS: A, D, G, H blocks, PLUS the entire K through Q standard section
 PRE_BLOCKED_RANGES: Final[dict[str, range]] = {
     "A": range(6, 15),
     "D": range(11, 21),
@@ -81,9 +84,10 @@ PRE_BLOCKED_RANGES: Final[dict[str, range]] = {
     "P": range(1, 15),
     "Q": range(1, 28),
 }
-BLOCKED_SEATS: Final[set[str]] = {
+_REQUESTED_BLOCKS: Final[set[str]] = {
     f"{row}{num}" for row, rng in PRE_BLOCKED_RANGES.items() for num in rng
 }
+BLOCKED_SEATS: Final[set[str]] = {s for s in _REQUESTED_BLOCKS if s in SEAT_RANK}
 SELLABLE_SEATS: Final[int] = TOTAL_SEATS - len(BLOCKED_SEATS)
 BLOCKED_MARK: Final[str] = "-- HOUSE BLOCK --"
 
@@ -98,7 +102,7 @@ TIER_ORDER: Final[tuple[str, ...]] = ("VVIP", "VIP", "PREMIUM", "STANDARD")
 DEFAULT_PRICES: Final[dict[str, int]] = {"VVIP": 5000, "VIP": 2400, "PREMIUM": 1000, "STANDARD": 1100}
 
 # =============================================================================
-# 2. SHEET SCHEMA & CONSTANTS
+# 2. SHEET SCHEMA
 # =============================================================================
 
 WORKSHEET: Final[str] = "passes"
@@ -116,6 +120,8 @@ VALID_STATUS: Final[tuple[str, ...]] = (AVAILABLE, PENDING, BOOKED)
 IST: Final[ZoneInfo] = ZoneInfo("Asia/Kolkata")
 STATS_TTL: Final[int] = 8
 WRITE_ATTEMPTS: Final[int] = 4
+# Allowed unlimited tickets per phone number (vital for paid events)
+ONE_PASS_PER_PHONE: Final[bool] = False
 
 BASE_DIR: Final[Path] = Path(__file__).parent
 HEADER_IMG: Final[Path] = BASE_DIR / "header.png"
@@ -123,8 +129,10 @@ FOOTER_IMG: Final[Path] = BASE_DIR / "footer.png"
 UPI_QR_IMG: Final[Path] = BASE_DIR / "upi_qr.png"
 ASSET_DIR: Final[Path] = BASE_DIR / "assets"
 
+
 def cfg(key: str, default: Any = "") -> Any:
     return st.secrets.get("app", {}).get(key, default)
+
 
 EVENT_NAME: Final[str] = cfg("event_name", "A for Amitabh")
 EVENT_SUBTITLE: Final[str] = cfg("event_subtitle", "The Vvineet Chaudhary Show")
@@ -140,7 +148,10 @@ SPLASH_HOLD: Final[float] = 0.85
 SPLASH_FADE: Final[float] = 0.65
 REVEAL_BASE: Final[float] = 0.72
 
-GOLD_STOPS: Final[tuple[str, ...]] = ("#BF953F", "#FCF6BA", "#B38728", "#FBF5B7", "#AA771C")
+# --- Palette -----------------------------------------------------------------
+GOLD_STOPS: Final[tuple[str, ...]] = (
+    "#BF953F", "#FCF6BA", "#B38728", "#FBF5B7", "#AA771C",
+)
 GOLD_CSS: Final[str] = "linear-gradient(135deg," + ",".join(GOLD_STOPS) + ")"
 GOLD: Final[str] = "#D4AF37"
 GOLD_SOFT: Final[str] = "#E8CC6B"
@@ -150,13 +161,16 @@ AMBER: Final[str] = "#F0A93B"
 LIME: Final[str] = "rgba(144,238,144,1)"
 LIME_TEXT: Final[str] = "rgba(200,255,200,1)"
 
-RGB_GOLD_STOPS: Final[tuple[tuple[int, int, int], ...]] = tuple((int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)) for h in GOLD_STOPS)
+RGB_GOLD_STOPS: Final[tuple[tuple[int, int, int], ...]] = tuple(
+    (int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)) for h in GOLD_STOPS
+)
 RGB_GOLD: Final[tuple[int, int, int]] = (212, 175, 55)
 RGB_INK: Final[tuple[int, int, int]] = (15, 15, 15)
 RGB_MUTED: Final[tuple[int, int, int]] = (143, 149, 160)
 RGB_TEXT: Final[tuple[int, int, int]] = (246, 243, 236)
 RGB_SILVER: Final[tuple[int, int, int]] = (226, 231, 240)
 
+# --- Ticket canvas -----------------------------------------------------------
 TICKET_W: Final[int] = 1600
 TICKET_H: Final[int] = 600
 SS: Final[int] = 2
@@ -165,12 +179,25 @@ STUB_X: Final[int] = 1058
 QR_PX: Final[int] = 232
 JPEG_QUALITY: Final[int] = 94
 
-def seat_row(seat_id: str) -> str: return str(seat_id)[:1].upper()
-def seat_tier(seat_id: str) -> str: return ROW_TIER.get(seat_row(seat_id), "PREMIUM")
-def now_ist() -> str: return datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S")
+
+def seat_row(seat_id: str) -> str:
+    return str(seat_id)[:1].upper()
+
+def seat_tier(seat_id: str) -> str:
+    return ROW_TIER.get(seat_row(seat_id), "PREMIUM")
+
+def now_ist() -> str:
+    return datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S")
+
 def money_text(value: Any) -> str:
-    try: return f"{float(str(value).replace(',', '').strip()):,.0f}"
-    except (TypeError, ValueError): return str(value)
+    try:
+        return f"{float(str(value).replace(',', '').strip()):,.0f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+# =============================================================================
+# 3. FONT SYSTEM
+# =============================================================================
 
 FONT_SOURCES: Final[dict[str, str]] = {
     "Inter.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf",
@@ -221,7 +248,10 @@ def _face(kind: str) -> tuple[str | None, str | None]:
         if Path(candidate).exists(): return candidate, None
     return None, None
 
-ROLES: Final[dict[str, tuple[str, str | None]]] = {"title": ("serif", "Black"), "subtitle": ("serif", "Medium"), "hero": ("sans", "Black"), "strong": ("sans", "Bold"), "label": ("sans", "Medium")}
+ROLES: Final[dict[str, tuple[str, str | None]]] = {
+    "title": ("serif", "Black"), "subtitle": ("serif", "Medium"), "hero": ("sans", "Black"),
+    "strong": ("sans", "Bold"), "label": ("sans", "Medium"),
+}
 
 @lru_cache(maxsize=256)
 def font(role: str, size: int) -> Any:
@@ -731,7 +761,7 @@ def inject_theme(intro: bool = False) -> None:
         color:#ECE7DA !important;
     }}
     [data-testid="stHeader"], header[data-testid="stHeader"] {{ background:transparent !important; }}
-    .block-container {{ padding-top:1.2rem; padding-bottom:3.5rem; max-width:840px; overflow-x: hidden; }}
+    .block-container {{ padding-top:1.2rem; padding-bottom:3.5rem; max-width:960px; overflow-x: hidden; }}
     html, body, [class*="css"] {{ font-family:Inter, system-ui, sans-serif; }}
     
     .glass {{
@@ -779,38 +809,47 @@ def inject_theme(intro: bool = False) -> None:
     .tier-price {{ font-size:1.6rem; font-weight:900; line-height:1.15; font-variant-numeric:tabular-nums; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
     .tier-rows {{ font-size:.60rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
 
-    /* ============ THE "LADDER KILLER" SEAT MAP HACK ============ */
-    /* Target the specific container's stVerticalBlock and FORCE it to be a horizontal flex row */
-    div[class*="st-key-maprow_"] > div > div[data-testid="stVerticalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
+    /* ============ THE TRUE HORIZONTAL MAP HACK FOR STREAMLIT ============ */
+    /* This absolutely forces Streamlit's mobile CSS to NOT stack our columns */
+    @media (max-width: 640px) {{
+        div[class*="st-key-ROW_CONTAINER_"] [data-testid="stHorizontalBlock"] {{
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            padding-bottom: 10px !important;
+            scrollbar-width: thin;
+        }}
+        div[class*="st-key-ROW_CONTAINER_"] [data-testid="column"] {{
+            width: auto !important;
+            min-width: max-content !important;
+            flex: 0 0 auto !important;
+            padding: 0 2px !important;
+        }}
+    }}
+    
+    /* Desktop horizontal scroll if needed */
+    div[class*="st-key-ROW_CONTAINER_"] [data-testid="stHorizontalBlock"] {{
         flex-wrap: nowrap !important;
         overflow-x: auto !important;
-        overflow-y: hidden !important;
+        padding-bottom: 8px !important;
         align-items: center !important;
-        justify-content: flex-start !important;
-        padding-bottom: 8px !important; 
-        width: 100% !important;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(212,175,55,0.3) transparent;
     }}
-    div[class*="st-key-maprow_"] > div > div[data-testid="stVerticalBlock"]::-webkit-scrollbar {{ height: 4px; }}
-    div[class*="st-key-maprow_"] > div > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb {{ background: rgba(212,175,55,0.3); border-radius: 4px; }}
-
-    /* Force the Streamlit button container to be tiny */
-    div[class*="st-key-maprow_"] [data-testid="stElementContainer"] {{
-        width: 34px !important;
-        min-width: 34px !important;
-        flex: 0 0 34px !important;
+    div[class*="st-key-ROW_CONTAINER_"] [data-testid="column"] {{
+        min-width: 32px !important;
+        width: 32px !important;
+        flex: 0 0 32px !important;
+        padding: 0 2px !important;
     }}
 
-    /* The actual seat buttons */
-    div[class*="st-key-mapseat_"] button {{
+    /* Tiny Square Buttons */
+    div[class*="st-key-ROW_CONTAINER_"] button {{
         width: 100% !important;
-        height: 34px !important;
-        min-height: 34px !important;
+        height: 32px !important;
+        min-height: 32px !important;
         padding: 0 !important;
-        border-radius: 6px !important;
+        margin: 0 !important;
+        border-radius: 4px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -818,58 +857,52 @@ def inject_theme(intro: bool = False) -> None:
         background-color:rgba(212,175,55,.07) !important;
         color:#F1E4BC !important;
     }}
-    div[class*="st-key-mapseat_"] button p {{
+    div[class*="st-key-ROW_CONTAINER_"] button p {{
         font-size: 11px !important;
         font-weight: 800 !important;
         margin: 0 !important;
+        padding: 0 !important;
     }}
     
-    div[class*="st-key-mapseat_"] button:hover:not(:disabled) {{ background-color:rgba(212,175,55,.24) !important; border-color:{GOLD} !important; transform:translateY(-2px); }}
+    div[class*="st-key-ROW_CONTAINER_"] button:hover:not(:disabled) {{ background-color:rgba(212,175,55,.24) !important; border-color:{GOLD} !important; transform:translateY(-2px); }}
     
-    /* Disabled (Booked/Reserved) Seats - Must be distinct but visible */
-    div[class*="st-key-mapseat_"] button:disabled {{
+    /* Disabled (Booked/Reserved) Seats */
+    div[class*="st-key-ROW_CONTAINER_"] button:disabled {{
         border: 1px solid rgba(255,255,255,0.15) !important;
         background-color: rgba(30,30,30,0.8) !important;
         color: rgba(255,255,255,0.4) !important;
         opacity: 1 !important;
         cursor: not-allowed !important;
     }}
-    div[class*="st-key-mapseat_"] button:disabled p {{ color: rgba(255,255,255,0.4) !important; }}
+    div[class*="st-key-ROW_CONTAINER_"] button:disabled p {{ color: rgba(255,255,255,0.4) !important; }}
     
     /* Selected (Cart) Seats */
-    div[class*="st-key-mapseat_"] button[kind="primary"], div[class*="st-key-mapseat_"] [data-testid="stBaseButton-primary"] {{
+    div[class*="st-key-ROW_CONTAINER_"] button[kind="primary"] {{
         background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important; background-color:{GOLD} !important;
         color:#12100C !important; border:none !important; box-shadow:0 0 15px rgba(212,175,55,.8) !important; 
     }}
-    div[class*="st-key-mapseat_"] button[kind="primary"] p {{ color:#12100C !important; }}
-    
-    /* Invisible Aisle Spacer */
-    div[class*="st-key-maprow_"] [data-testid="stElementContainer"]:has(div[class*="st-key-aisle_"]) {{
-        width: 14px !important; min-width: 14px !important; flex: 0 0 14px !important;
-    }}
-    div[class*="st-key-aisle_"] button {{ opacity: 0 !important; pointer-events: none !important; }}
+    div[class*="st-key-ROW_CONTAINER_"] button[kind="primary"] p {{ color:#12100C !important; }}
 
-    /* Ultimate Mobile Squeeze for Seats */
+    /* Extreme Mobile Squeeze for Seats */
     @media (max-width: 640px) {{
-        div[class*="st-key-maprow_"] [data-testid="stElementContainer"] {{
-            width: 24px !important; min-width: 24px !important; flex: 0 0 24px !important;
+        div[class*="st-key-ROW_CONTAINER_"] [data-testid="column"] {{
+            min-width: 24px !important;
+            width: 24px !important;
+            flex: 0 0 24px !important;
+            padding: 0 1px !important;
         }}
-        div[class*="st-key-mapseat_"] button {{
-            height: 24px !important; min-height: 24px !important; border-radius: 4px !important;
+        div[class*="st-key-ROW_CONTAINER_"] button {{
+            height: 24px !important; min-height: 24px !important; border-radius: 3px !important;
         }}
-        div[class*="st-key-mapseat_"] button p {{ font-size: 8px !important; }} /* Extremely tiny text to fit */
-        
-        div[class*="st-key-maprow_"] [data-testid="stElementContainer"]:has(div[class*="st-key-aisle_"]) {{
-            width: 10px !important; min-width: 10px !important; flex: 0 0 10px !important;
-        }}
+        div[class*="st-key-ROW_CONTAINER_"] button p {{ font-size: 9px !important; }}
     }}
 
     .screen {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.6rem; font-weight:900; letter-spacing:.55em; color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
     
-    /* ROW HEADERS WITH PRICES */
+    /* PRICE ON ROW HEADER */
     .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid rgba(212,175,55,.15); }}
-    .rowtag b {{ font-size:1rem; font-weight:900; color:{GOLD_SOFT}; letter-spacing:.06em; }}
-    .rowtag span {{ font-size:.55rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:rgba(236,231,218,.7); }}
+    .rowtag b {{ font-size:1.1rem; font-weight:900; color:{GOLD_SOFT}; letter-spacing:.06em; }}
+    .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:rgba(236,231,218,.7); }}
     
     .legend {{ display:flex; flex-wrap:wrap; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:rgba(236,231,218,.5); }}
     .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
@@ -933,7 +966,7 @@ def banner(path: Path, fallback: str) -> None:
     else: _html(f"<div class='glass' style='text-align:center;letter-spacing:.3em;font-weight:900;color:{GOLD_SOFT};'>{fallback}</div>")
 
 def hero() -> None:
-    maps_chip = f'<a class="chip chip--map" href="{MAPS_URL}" target="_blank"><b>Map</b><span>Directions &#8599;</span></a>' if MAPS_URL else ""
+    maps_chip = f'<a class="chip chip--map" href="{MAPS_URL}" target="_blank" rel="noopener noreferrer"><b>Map</b><span>Directions &#8599;</span></a>' if MAPS_URL else ""
     _html(f'<div class="glass glass--hero"><span class="pill">OFFICIAL TICKETING</span><div class="show-title">{EVENT_NAME}</div><div class="show-sub">{EVENT_SUBTITLE}</div><div class="micro">An evening of tribute &middot; strictly by invitation</div><div class="chips"><span class="chip"><b>Venue</b><span>{VENUE}</span></span><span class="chip"><b>Date</b><span>{EVENT_DATE}</span></span>{maps_chip}</div></div>')
 
 def tier_banner(prices: dict[str, int]) -> None:
@@ -993,20 +1026,21 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
         price = prices[tier]
         _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
 
-        # ALL st.buttons inside ONE container, targeted by CSS to lay out horizontally
-        with st.container(key=f"maprow_{row_letter}"):
+        with st.container(key=f"ROW_CONTAINER_{row_letter}"):
+            cols = st.columns(len(layout))
             for i, item in enumerate(layout):
-                if item == "AISLE":
-                    # Invisible disabled button to act as spacing
-                    st.button(" ", key=f"aisle_{row_letter}_{i}", disabled=True)
-                else:
-                    seat = f"{row_letter}{item}"
-                    taken = statuses.get(seat, AVAILABLE) != AVAILABLE
-                    is_mine = seat in cart
-                    if st.button(str(item), key=f"mapseat_{seat}", disabled=taken, type="primary" if is_mine else "secondary"):
-                        if is_mine: cart.remove(seat)
-                        else: cart.append(seat)
-                        st.rerun()
+                with cols[i]:
+                    if item == "AISLE":
+                        # Empty column leaves an exact blank space
+                        pass
+                    else:
+                        seat = f"{row_letter}{item}"
+                        taken = statuses.get(seat, AVAILABLE) != AVAILABLE
+                        is_mine = seat in cart
+                        if st.button(str(item), key=f"seatbtn_{seat}", disabled=taken, type="primary" if is_mine else "secondary"):
+                            if is_mine: cart.remove(seat)
+                            else: cart.append(seat)
+                            st.rerun()
 
 def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if not available_seats(df): st.error("Every seat has been taken or is awaiting verification.", icon="🎭"); return
