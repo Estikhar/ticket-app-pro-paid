@@ -88,11 +88,11 @@ ROW_TIER: Final[dict[str, str]] = {
     "A": "VVIP", "B": "VVIP",
     "C": "VIP", "D": "VIP", "E": "VIP", "F": "VIP", "G": "VIP",
     "H": "PREMIUM", "I": "PREMIUM", "J": "PREMIUM",
-    "K": "STANDARD", "L": "STANDARD", "M": "STANDARD", "N": "STANDARD",
-    "O": "STANDARD", "P": "STANDARD", "Q": "STANDARD"
+    "K": "PREMIUM", "L": "PREMIUM", "M": "PREMIUM", "N": "PREMIUM",
+    "O": "PREMIUM", "P": "PREMIUM", "Q": "PREMIUM"
 }
-TIER_ORDER: Final[tuple[str, ...]] = ("VVIP", "VIP", "PREMIUM", "STANDARD")
-DEFAULT_PRICES: Final[dict[str, int]] = {"VVIP": 5000, "VIP": 2400, "PREMIUM": 1000, "STANDARD": 1100}
+TIER_ORDER: Final[tuple[str, ...]] = ("VVIP", "VIP", "PREMIUM")
+DEFAULT_PRICES: Final[dict[str, int]] = {"VVIP": 5000, "VIP": 2400, "PREMIUM": 1000}
 
 # =============================================================================
 # 2. SHEET SCHEMA & CONSTANTS
@@ -141,8 +141,6 @@ GOLD_SOFT: Final[str] = "#E8CC6B"
 OBSIDIAN: Final[str] = "#090B10"
 NEON: Final[str] = "#34D07A"
 AMBER: Final[str] = "#F0A93B"
-LIME: Final[str] = "rgba(144,238,144,1)"
-LIME_TEXT: Final[str] = "rgba(200,255,200,1)"
 
 RGB_GOLD_STOPS: Final[tuple[tuple[int, int, int], ...]] = tuple((int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)) for h in GOLD_STOPS)
 RGB_GOLD: Final[tuple[int, int, int]] = (212, 175, 55)
@@ -774,7 +772,7 @@ def inject_theme(intro: bool = False) -> None:
     .tier-rows {{ font-size:.60rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
 
     /* ========================================================
-       THE BULLETPROOF WHITE SEATING BOX & HORIZONTAL MAP HACK
+       THE BULLETPROOF WHITE SEATING BOX & HORIZONTAL SCROLL HACK
        ======================================================== */
     
     /* 1. The White Box wrapper */
@@ -909,12 +907,12 @@ def inject_theme(intro: bool = False) -> None:
     /* STAGE and TEXT styling inside White Box */
     .stage {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.7rem; font-weight:900; letter-spacing:.5em; color:#0D0B06 !important; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
     
-    .st-key-WHITE_MAP_BOX .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
-    .st-key-WHITE_MAP_BOX .rowtag b {{ font-size:1.1rem; font-weight:900; color:#000000 !important; letter-spacing:.06em; }}
-    .st-key-WHITE_MAP_BOX .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#666666 !important; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .rowtag b {{ font-size:1.1rem; font-weight:900; color:#000000 !important; letter-spacing:.06em; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#666666 !important; }}
     
-    .st-key-WHITE_MAP_BOX .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
-    .st-key-WHITE_MAP_BOX .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
     
     /* Match Legend colors to the new seat colors */
     .lg-free {{ border:1px solid #34D07A; background:rgba(52,208,122,0.15); }}
@@ -955,12 +953,13 @@ def inject_theme(intro: bool = False) -> None:
         box-shadow:0 0 25px rgba(57,255,20,0.8), inset 0 0 12px rgba(57,255,20,0.5) !important; }}
     .stTextInput input {{ height:72px !important; font-size:1.32rem !important; font-weight:700 !important; color:#D6FFCB !important; text-shadow:0 0 14px rgba(57,255,20,.5) !important; }}
 
-    .st-key-start_booking button, .st-key-go_to_pay button {{
+    /* Target BOTH go_to_pay buttons (top and bottom) */
+    .st-key-start_booking button, div[class*="st-key-go_to_pay"] button {{
         min-height:92px !important; width:100% !important; font-size:1.1rem !important; font-weight:900 !important; letter-spacing:.15em !important; border-radius:22px !important;
         border:none !important; color:#08130C !important; background-color:{GOLD} !important;
         background-image:linear-gradient(120deg,#AA771C 0%,#D4AF37 22%,#FFF2CD 46%,#34D07A 74%,#0FA958 100%) !important; background-size:220% 220% !important;
         animation:startPulse 2.4s ease-in-out infinite, startShift 7s ease-in-out infinite !important; }}
-    .st-key-start_booking button p, .st-key-go_to_pay button p {{ color:#08130C !important; font-weight:900 !important; letter-spacing:.15em !important; }}
+    .st-key-start_booking button p, div[class*="st-key-go_to_pay"] button p {{ color:#08130C !important; font-weight:900 !important; letter-spacing:.15em !important; }}
     
     @keyframes startShift {{ 0%,100%{{background-position:0% 50%}} 50%{{background-position:100% 50%}} }}
     @keyframes startPulse {{ 0%,100% {{ box-shadow:0 20px 52px -12px rgba(212,175,55,.75), 0 10px 40px -10px rgba(52,208,122,.55), inset 0 1px 0 rgba(255,255,255,.7); }} 50% {{ box-shadow:0 26px 68px -10px rgba(212,175,55,.95), 0 16px 54px -8px rgba(52,208,122,.8), inset 0 1px 0 rgba(255,255,255,.7); }} }}
@@ -981,7 +980,7 @@ def hero() -> None:
     _html(f'<div class="glass glass--hero"><span class="pill">OFFICIAL TICKETING</span><div class="show-title">{EVENT_NAME}</div><div class="show-sub">{EVENT_SUBTITLE}</div><div class="micro">An evening of tribute &middot; strictly by invitation</div><div class="chips"><span class="chip"><b>Venue</b><span>{VENUE}</span></span><span class="chip"><b>Date</b><span>{EVENT_DATE}</span></span>{maps_chip}</div></div>')
 
 def tier_banner(prices: dict[str, int]) -> None:
-    rows = {"VVIP": "Rows A–B", "VIP": "Rows C–G", "PREMIUM": "Rows H–J", "STANDARD": "Rows K–Q"}
+    rows = {"VVIP": "Rows A–B", "VIP": "Rows C–G", "PREMIUM": "Rows H–Q"}
     cards = "".join(f'<div class="tier"><span class="eyebrow">{t}</span><div class="tier-price">&#8377;{prices[t]:,}</div><div class="tier-rows">{rows[t]}</div></div>' for t in TIER_ORDER)
     _html(f'<div class="glass" style="padding:1.3rem 1.6rem;"><span class="eyebrow">Seat categories</span><div class="tier-wrap"><div class="tier-grid">{cards}</div></div></div>')
 
@@ -1030,7 +1029,6 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
-    # The White Box Container
     with st.container(key="WHITE_MAP_BOX"):
         _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
@@ -1039,12 +1037,12 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
             price = prices[tier]
             _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
 
-            # NO st.columns anywhere! Just sequential buttons inside a mapped container.
             with st.container(key=f"MAPROW_{row_letter}"):
                 for i, item in enumerate(layout):
                     if item == "AISLE":
-                        # Hidden invisible button to create the exact aisle gap safely
+                        # Completely invisible and disabled spacer
                         st.button(" ", key=f"aisle_{row_letter}_{i}", disabled=True)
+                        _html(f'<style>div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(button[key="aisle_{row_letter}_{i}"]) {{ visibility: hidden !important; width: 15px !important; min-width: 15px !important; }}</style>')
                     else:
                         seat = f"{row_letter}{item}"
                         taken = statuses.get(seat, AVAILABLE) != AVAILABLE
@@ -1058,12 +1056,23 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
 def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if not available_seats(df): st.error("Every seat has been taken or is awaiting verification.", icon="🎭"); return
     _html('<div class="glass" style="padding-bottom:.8rem;"><span class="pill">CHOOSE YOUR SEATS</span><div class="micro" style="margin-top:1.05rem;">Tap available seats to select multiple. Price is marked on the row header.</div></div>')
+    
+    # Check cart before rendering map (Top Proceed Button)
+    cart = st.session_state.get("_cart", [])
+    if cart:
+        total = sum(prices[seat_tier(s)] for s in cart)
+        if st.button(f"PROCEED TO PAY ₹{total:,} FOR {len(cart)} SEAT(S)", type="primary", width="stretch", key="go_to_pay_top"): goto_step(3)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
     render_seat_map(df, prices)
+    
+    # Check cart after rendering map (Bottom Proceed Button)
     cart = st.session_state.get("_cart", [])
     if cart:
         total = sum(prices[seat_tier(s)] for s in cart)
         st.markdown("---")
-        if st.button(f"PROCEED TO PAY ₹{total:,} FOR {len(cart)} SEAT(S)", type="primary", width="stretch", key="go_to_pay"): goto_step(3)
+        if st.button(f"PROCEED TO PAY ₹{total:,} FOR {len(cart)} SEAT(S)", type="primary", width="stretch", key="go_to_pay_bottom"): goto_step(3)
+        
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Back", width="content", key="back_to_1"): goto_step(1)
 
