@@ -141,6 +141,8 @@ GOLD_SOFT: Final[str] = "#E8CC6B"
 OBSIDIAN: Final[str] = "#090B10"
 NEON: Final[str] = "#34D07A"
 AMBER: Final[str] = "#F0A93B"
+LIME: Final[str] = "rgba(144,238,144,1)"
+LIME_TEXT: Final[str] = "rgba(200,255,200,1)"
 
 RGB_GOLD_STOPS: Final[tuple[tuple[int, int, int], ...]] = tuple((int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)) for h in GOLD_STOPS)
 RGB_GOLD: Final[tuple[int, int, int]] = (212, 175, 55)
@@ -875,7 +877,7 @@ def inject_theme(intro: bool = False) -> None:
         text-decoration: none !important; 
     }}
 
-    /* Invisible Aisle Spacer - FIXED AND 100% INVISIBLE */
+    /* ZERO-STRETCH INVISIBLE AISLE SPACER */
     div[class*="st-key-aisle_"] {{
         width: 20px !important;
         min-width: 20px !important;
@@ -886,6 +888,9 @@ def inject_theme(intro: bool = False) -> None:
         margin: 0 !important;
         padding: 0 !important;
         display: inline-block !important;
+    }}
+    div[class*="st-key-aisle_"] button {{
+        display: none !important;
     }}
 
     /* Mobile Squeeze for Seats */
@@ -1035,7 +1040,6 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
-    # The White Box Container
     with st.container(key="WHITE_MAP_BOX"):
         _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
@@ -1047,8 +1051,8 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
             with st.container(key=f"MAPROW_{row_letter}"):
                 for i, item in enumerate(layout):
                     if item == "AISLE":
-                        # THE PURE NATIVE HTML FIX FOR AISLE (No buttons, no st.columns)
-                        st.container(key=f"aisle_{row_letter}_{i}")
+                        # Pure clean HTML gap spacer
+                        st.markdown(f'<div class="map-aisle" style="display:inline-block; width:20px; height:32px;"></div>', unsafe_allow_html=True)
                     else:
                         seat = f"{row_letter}{item}"
                         taken = statuses.get(seat, AVAILABLE) != AVAILABLE
@@ -1063,7 +1067,7 @@ def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if not available_seats(df): st.error("Every seat has been taken or is awaiting verification.", icon="🎭"); return
     _html('<div class="glass" style="padding-bottom:.8rem;"><span class="pill">CHOOSE YOUR SEATS</span><div class="micro" style="margin-top:1.05rem;">Tap available seats to select multiple. Price is marked on the row header.</div></div>')
     
-    # Check cart before rendering map (Top Proceed Button)
+    # Top Proceed Button
     cart = st.session_state.get("_cart", [])
     if cart:
         total = sum(prices[seat_tier(s)] for s in cart)
@@ -1072,7 +1076,7 @@ def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
         
     render_seat_map(df, prices)
     
-    # Check cart after rendering map (Bottom Proceed Button)
+    # Bottom Proceed Button
     cart = st.session_state.get("_cart", [])
     if cart:
         total = sum(prices[seat_tier(s)] for s in cart)
