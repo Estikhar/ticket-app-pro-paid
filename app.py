@@ -35,8 +35,6 @@ except Exception:  # noqa: BLE001
 # =============================================================================
 # 1. EXACT REAL-WORLD SEATING MATRIX (LTG AUDITORIUM)
 # =============================================================================
-# "AISLE" creates an exact gap in the UI to match the real physical theater layout.
-
 ROW_LAYOUTS: Final[dict[str, list[Any]]] = {
     "A": [20,19,18,17,16,15,14,13,12,11, "AISLE", 10,9,8,7,6,5,4,3,2,1],
     "B": [20,19,18,17,16,15,14,13,12,11, "AISLE", 10,9,8,7,6,5,4,3,2,1],
@@ -66,7 +64,6 @@ for row_letter, layout in ROW_LAYOUTS.items():
 SEAT_RANK: Final[dict[str, int]] = {seat: i for i, seat in enumerate(SEAT_ORDER)}
 TOTAL_SEATS: Final[int] = len(SEAT_ORDER)
 
-# PRE-BLOCKED SEATS: K-Q section is entirely blocked as 'Standard ₹1100'
 PRE_BLOCKED_RANGES: Final[dict[str, range]] = {
     "A": range(6, 15),
     "D": range(11, 21),
@@ -100,11 +97,8 @@ DEFAULT_PRICES: Final[dict[str, int]] = {"VVIP": 5000, "VIP": 2400, "PREMIUM": 1
 # =============================================================================
 # 2. SHEET SCHEMA
 # =============================================================================
-
 WORKSHEET: Final[str] = "passes"
-SCHEMA: Final[list[str]] = [
-    "seat_id", "status", "name", "phone", "utr_number", "booked_at", "checkin_time",
-]
+SCHEMA: Final[list[str]] = ["seat_id", "status", "name", "phone", "utr_number", "booked_at", "checkin_time"]
 SETTINGS_WORKSHEET: Final[str] = "settings"
 SETTINGS_SCHEMA: Final[list[str]] = ["tier", "price"]
 
@@ -124,8 +118,7 @@ FOOTER_IMG: Final[Path] = BASE_DIR / "footer.png"
 UPI_QR_IMG: Final[Path] = BASE_DIR / "upi_qr.png"
 ASSET_DIR: Final[Path] = BASE_DIR / "assets"
 
-def cfg(key: str, default: Any = "") -> Any:
-    return st.secrets.get("app", {}).get(key, default)
+def cfg(key: str, default: Any = "") -> Any: return st.secrets.get("app", {}).get(key, default)
 
 EVENT_NAME: Final[str] = cfg("event_name", "A for Amitabh")
 EVENT_SUBTITLE: Final[str] = cfg("event_subtitle", "The Vvineet Chaudhary Show")
@@ -780,100 +773,109 @@ def inject_theme(intro: bool = False) -> None:
     .tier-price {{ font-size:1.6rem; font-weight:900; line-height:1.15; font-variant-numeric:tabular-nums; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
     .tier-rows {{ font-size:.60rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
 
-    /* ============ THE TRUE HORIZONTAL MAP HACK FOR STREAMLIT ============ */
-    /* By completely destroying st.columns and forcing flex-start, we force everything into a strict line */
-    div[class*="st-key-ROW_CONTAINER_"] > div > div[data-testid="stVerticalBlock"] {{
+    /* ============ THE TRUE HORIZONTAL MAP FIX FOR STREAMLIT ============ */
+    
+    /* 1. White Background for the Seating Area */
+    div[class*="st-key-seating_area_container"] > div {{
+        background-color: #FFFFFF !important;
+        padding: 20px 10px !important;
+        border-radius: 20px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+    }}
+
+    /* 2. Force Horizontal Scrolling on Mobile (Kill the Ladder) */
+    div[class*="st-key-ROW_CONTAINER_"] > div > div[data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         overflow-x: auto !important;
         overflow-y: hidden !important;
-        align-items: center !important;
-        justify-content: flex-start !important; /* Forces items together on the left */
-        gap: 6px !important;
         padding-bottom: 12px !important;
         width: 100% !important;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(212,175,55,0.3) transparent;
+        scrollbar-width: none; 
+        -ms-overflow-style: none;
     }}
-    div[class*="st-key-ROW_CONTAINER_"] > div > div[data-testid="stVerticalBlock"]::-webkit-scrollbar {{ height: 4px; }}
-    div[class*="st-key-ROW_CONTAINER_"] > div > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb {{ background: rgba(212,175,55,0.3); border-radius: 4px; }}
-    
-    div[class*="st-key-ROW_CONTAINER_"] [data-testid="stElementContainer"] {{
-        width: auto !important;
-        min-width: max-content !important;
-        flex: 0 0 auto !important;
+    div[class*="st-key-ROW_CONTAINER_"] > div > div[data-testid="stHorizontalBlock"]::-webkit-scrollbar {{
+        display: none;
     }}
 
-    /* Tiny Square Buttons */
+    /* 3. Keep Columns from Shrinking */
+    div[class*="st-key-ROW_CONTAINER_"] [data-testid="column"] {{
+        flex: 0 0 auto !important;
+        width: auto !important;
+        min-width: max-content !important;
+        padding: 0 2px !important;
+    }}
+
+    /* 4. Tiny Square Buttons on White Background */
     div[class*="st-key-seatbtn_"] button {{
-        width: 32px !important;
-        height: 32px !important;
-        min-height: 32px !important;
+        width: 28px !important;
+        height: 28px !important;
+        min-height: 28px !important;
         padding: 0 !important;
         margin: 0 !important;
         border-radius: 4px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        border:1px solid rgba(212,175,55,.55) !important;
-        background-color:rgba(212,175,55,.07) !important;
-        color:#F1E4BC !important;
+        border: 1px solid #D4AF37 !important;
+        background-color: #FAFAFA !important;
     }}
     div[class*="st-key-seatbtn_"] button p {{
-        font-size: 12px !important;
+        font-size: 11px !important;
         font-weight: 800 !important;
+        color: #000000 !important;
         margin: 0 !important;
-        padding: 0 !important;
     }}
     
-    div[class*="st-key-seatbtn_"] button:hover:not(:disabled) {{ background-color:rgba(212,175,55,.24) !important; border-color:{GOLD} !important; transform:translateY(-2px); }}
+    div[class*="st-key-seatbtn_"] button:hover:not(:disabled) {{ 
+        background-color: #E8CC6B !important; 
+        transform: translateY(-2px); 
+    }}
     
-    /* Disabled (Booked/Reserved) Seats */
+    /* Disabled (Booked/Reserved) Seats - Solid Grey for contrast */
     div[class*="st-key-seatbtn_"] button:disabled {{
-        border: 1px solid rgba(255,255,255,0.15) !important;
-        background-color: rgba(30,30,30,0.8) !important;
-        color: rgba(255,255,255,0.4) !important;
-        opacity: 1 !important;
+        border: 1px solid #CCCCCC !important;
+        background-color: #EEEEEE !important;
         cursor: not-allowed !important;
     }}
-    div[class*="st-key-seatbtn_"] button:disabled p {{ color: rgba(255,255,255,0.4) !important; }}
-    
-    /* Selected (Cart) Seats */
-    div[class*="st-key-seatbtn_"] button[kind="primary"] {{
-        background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important; background-color:{GOLD} !important;
-        color:#12100C !important; border:none !important; box-shadow:0 0 15px rgba(212,175,55,.8) !important; 
+    div[class*="st-key-seatbtn_"] button:disabled p {{ 
+        color: #999999 !important; 
     }}
-    div[class*="st-key-seatbtn_"] button[kind="primary"] p {{ color:#12100C !important; }}
+    
+    /* Selected (Cart) Seats - Gold */
+    div[class*="st-key-seatbtn_"] button[kind="primary"] {{
+        background: linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important;
+        border: none !important;
+        box-shadow: 0 4px 10px rgba(212,175,55,0.4) !important;
+    }}
+    div[class*="st-key-seatbtn_"] button[kind="primary"] p {{ color: #000000 !important; }}
 
     /* Invisible Aisle Spacer */
-    .map-aisle {{ width: 24px !important; height: 10px !important; }}
+    .map-aisle {{ width: 15px !important; height: 28px !important; }}
 
-    /* Extreme Mobile Squeeze for Seats */
+    /* Mobile Squeeze for Seats */
     @media (max-width: 640px) {{
-        div[class*="st-key-ROW_CONTAINER_"] > div > div[data-testid="stVerticalBlock"] {{ gap: 4px !important; }}
+        div[class*="st-key-ROW_CONTAINER_"] [data-testid="column"] {{ padding: 0 1px !important; }}
         div[class*="st-key-seatbtn_"] button {{
-            width: 26px !important;
-            height: 26px !important;
-            min-height: 26px !important;
-            border-radius: 4px !important;
+            width: 25px !important; height: 25px !important; min-height: 25px !important; border-radius: 3px !important;
         }}
         div[class*="st-key-seatbtn_"] button p {{ font-size: 10px !important; }}
-        .map-aisle {{ width: 14px !important; height: 10px !important; }}
+        .map-aisle {{ width: 12px !important; height: 25px !important; }}
     }}
 
-    .screen {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.6rem; font-weight:900; letter-spacing:.55em; color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
+    .stage {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.7rem; font-weight:900; letter-spacing:.5em; color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
     
-    /* PRICE ON ROW HEADER */
-    .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid rgba(212,175,55,.15); }}
-    .rowtag b {{ font-size:1.1rem; font-weight:900; color:{GOLD_SOFT}; letter-spacing:.06em; }}
-    .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:rgba(236,231,218,.7); }}
+    /* ROW HEADERS & LEGEND FOR WHITE BG */
+    div[class*="st-key-seating_area_container"] .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
+    div[class*="st-key-seating_area_container"] .rowtag b {{ font-size:1.1rem; font-weight:900; color:#111111 !important; letter-spacing:.06em; }}
+    div[class*="st-key-seating_area_container"] .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#777777 !important; }}
     
-    .legend {{ display:flex; flex-wrap:wrap; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:rgba(236,231,218,.5); }}
-    .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
-    .lg-free {{ border:1px solid rgba(212,175,55,.6); background:rgba(212,175,55,.08); }}
+    div[class*="st-key-seating_area_container"] .legend {{ display:flex; flex-wrap:wrap; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
+    div[class*="st-key-seating_area_container"] .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
+    .lg-free {{ border:1px solid #D4AF37; background:#FFFFFF; }}
     .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 0 12px rgba(212,175,55,.7); }}
-    .lg-gone {{ border:1px solid rgba(255,255,255,.15); background:rgba(30,30,30,0.8); }}
+    .lg-gone {{ border:1px solid #E0E0E0; background:#F0F0F0; }}
 
     /* ============ RECEIPT & UI ============ */
     .receipt {{ position:relative; overflow:hidden; margin:.3rem 0 1.2rem; padding:1.35rem 1.6rem; border-radius:18px; background:linear-gradient(135deg, rgba(212,175,55,.16) 0%, rgba(212,175,55,.05) 42%, rgba(255,255,255,.02) 100%); border:1px solid rgba(212,175,55,.55); box-shadow:0 18px 46px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10), 0 0 34px rgba(212,175,55,.12); }}
@@ -984,28 +986,30 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
-    _html('<div class="screen">S C R E E N</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
+    # The new isolated WHITE CONTAINER for the Stage & Seating Map
+    with st.container(key="seating_area_container"):
+        _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
-    for row_letter, layout in ROW_LAYOUTS.items():
-        tier = ROW_TIER[row_letter]
-        price = prices[tier]
-        _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
+        for row_letter, layout in ROW_LAYOUTS.items():
+            tier = ROW_TIER[row_letter]
+            price = prices[tier]
+            _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
 
-        # We do NOT use st.columns. We just emit buttons sequentially and let CSS group them in a row.
-        with st.container(key=f"ROW_CONTAINER_{row_letter}"):
-            for i, item in enumerate(layout):
-                if item == "AISLE":
-                    # Invisible div as physical spacer
-                    st.markdown('<div class="map-aisle"></div>', unsafe_allow_html=True)
-                else:
-                    seat = f"{row_letter}{item}"
-                    taken = statuses.get(seat, AVAILABLE) != AVAILABLE
-                    is_mine = seat in cart
-                    
-                    if st.button(str(item), key=f"seatbtn_{seat}", disabled=taken, type="primary" if is_mine else "secondary"):
-                        if is_mine: cart.remove(seat)
-                        else: cart.append(seat)
-                        st.rerun()
+            # We use exactly len(layout) columns. The CSS forces them to be a horizontal scrolling row.
+            with st.container(key=f"ROW_CONTAINER_{row_letter}"):
+                cols = st.columns(len(layout))
+                for i, item in enumerate(layout):
+                    with cols[i]:
+                        if item == "AISLE":
+                            st.markdown('<div class="map-aisle"></div>', unsafe_allow_html=True)
+                        else:
+                            seat = f"{row_letter}{item}"
+                            taken = statuses.get(seat, AVAILABLE) != AVAILABLE
+                            is_mine = seat in cart
+                            if st.button(str(item), key=f"seatbtn_{seat}", disabled=taken, type="primary" if is_mine else "secondary"):
+                                if is_mine: cart.remove(seat)
+                                else: cart.append(seat)
+                                st.rerun()
 
 def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if not available_seats(df): st.error("Every seat has been taken or is awaiting verification.", icon="🎭"); return
