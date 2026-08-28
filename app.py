@@ -36,8 +36,9 @@ except Exception:  # noqa: BLE001
 # 1. SEATING MATRIX
 # =============================================================================
 
+# Fixed: Row D originally had 10, but the map shows 20 (D11-D20 are reserved).
 ROW_CAPACITIES: Final[dict[str, int]] = {
-    "A": 20, "B": 20, "C": 20, "D": 10, "E": 20,
+    "A": 20, "B": 20, "C": 20, "D": 20, "E": 20,
     "F": 20, "G": 20, "H": 20, "I": 20, "J": 20,
 }
 SEAT_ORDER: Final[list[str]] = [
@@ -150,10 +151,8 @@ def now_ist() -> str:
     return datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S")
 
 def money_text(value: Any) -> str:
-    try:
-        return f"{float(str(value).replace(',', '').strip()):,.0f}"
-    except (TypeError, ValueError):
-        return str(value)
+    try: return f"{float(str(value).replace(',', '').strip()):,.0f}"
+    except (TypeError, ValueError): return str(value)
 
 FONT_SOURCES: Final[dict[str, str]] = {
     "Inter.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf",
@@ -176,16 +175,13 @@ SYSTEM_SERIF: Final[tuple[str, ...]] = (
 
 def _fetch_font(name: str) -> Path | None:
     target = ASSET_DIR / name
-    if target.exists():
-        return target
-    if not FETCH_FONTS or name not in FONT_SOURCES:
-        return None
+    if target.exists(): return target
+    if not FETCH_FONTS or name not in FONT_SOURCES: return None
     try:
         ASSET_DIR.mkdir(parents=True, exist_ok=True)
         with urllib.request.urlopen(FONT_SOURCES[name], timeout=12) as response:
             payload = response.read()
-        if len(payload) < 20_000:
-            return None
+        if len(payload) < 20_000: return None
         tmp = target.with_suffix(".part")
         tmp.write_bytes(payload)
         ImageFont.truetype(str(tmp), 24)
@@ -240,16 +236,11 @@ def font_has_glyph(role: str, char: str) -> bool:
     target = stamp(char)
     return target != stamp("\uFFFE") and target != stamp(" ")
 
-def fonts_ready() -> bool:
-    return _face("sans")[0] is not None
-
+def fonts_ready() -> bool: return _face("sans")[0] is not None
 @lru_cache(maxsize=2)
-def rupee() -> str:
-    return "\u20b9" if font_has_glyph("strong", "\u20b9") else "Rs. "
-
+def rupee() -> str: return "\u20b9" if font_has_glyph("strong", "\u20b9") else "Rs. "
 @lru_cache(maxsize=2)
-def ellipsis() -> str:
-    return "\u2026" if font_has_glyph("strong", "\u2026") else "..."
+def ellipsis() -> str: return "\u2026" if font_has_glyph("strong", "\u2026") else "..."
 
 def text_w(draw: ImageDraw.ImageDraw, text: str, fnt: Any, tracking: float = 0) -> float:
     return draw.textlength(text, font=fnt) + tracking * max(len(text) - 1, 0)
@@ -270,21 +261,16 @@ def draw_tracked(
         draw.text((x, y), ch, font=fnt, fill=fill, anchor="l" + vertical)
         x += draw.textlength(ch, font=fnt) + tracking
 
-def fit_font(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float,
-             start: int, minimum: int) -> Any:
+def fit_font(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float, start: int, minimum: int) -> Any:
     size = start
-    while size > minimum and draw.textlength(text, font=font(role, size)) > max_w:
-        size -= 2
+    while size > minimum and draw.textlength(text, font=font(role, size)) > max_w: size -= 2
     return font(role, size)
 
-def fit_text(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float,
-             start: int, minimum: int) -> tuple[Any, str]:
+def fit_text(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float, start: int, minimum: int) -> tuple[Any, str]:
     fnt = fit_font(draw, text, role, max_w, start, minimum)
-    if draw.textlength(text, font=fnt) <= max_w:
-        return fnt, text
+    if draw.textlength(text, font=fnt) <= max_w: return fnt, text
     clipped = text
-    while clipped and draw.textlength(clipped + ellipsis(), font=fnt) > max_w:
-        clipped = clipped[:-1]
+    while clipped and draw.textlength(clipped + ellipsis(), font=fnt) > max_w: clipped = clipped[:-1]
     return fnt, (clipped.rstrip() + ellipsis()) if clipped else text[:1]
 
 @lru_cache(maxsize=4)
@@ -302,8 +288,7 @@ def gold_ramp(size: tuple[int, int]) -> Image.Image:
         px[0, y] = tuple(round(c0[j] + (c1[j] - c0[j]) * k) for j in range(3))
     return ramp.resize((max(w, 1), max(h, 1)), Image.BILINEAR)
 
-def _text_mask(size: tuple[int, int], xy: tuple[float, float], text: str,
-               fnt: Any, tracking: float, anchor: str) -> Image.Image:
+def _text_mask(size: tuple[int, int], xy: tuple[float, float], text: str, fnt: Any, tracking: float, anchor: str) -> Image.Image:
     mask = Image.new("L", size, 0)
     draw_tracked(ImageDraw.Draw(mask), xy, text, fnt, 255, tracking=tracking, anchor=anchor)
     return mask
@@ -342,8 +327,7 @@ def vertical_mask(size: tuple[int, int], stops: list[tuple[float, float]]) -> Im
         px[0, y] = max(0, min(255, int(val * 255)))
     return strip.resize((max(w, 1), max(h, 1)), Image.BILINEAR)
 
-def radial_glow(size: tuple[int, int], centre: tuple[float, float],
-                radius: float, strength: float) -> Image.Image:
+def radial_glow(size: tuple[int, int], centre: tuple[float, float], radius: float, strength: float) -> Image.Image:
     w, h = size
     small = 96
     mask = Image.new("L", (small, small), 0)
@@ -352,8 +336,7 @@ def radial_glow(size: tuple[int, int], centre: tuple[float, float],
     steps = 26
     for i in range(steps, 0, -1):
         r = radius / max(w, h) * small * (i / steps)
-        md.ellipse([cx - r, cy - r, cx + r, cy + r],
-                   fill=int(255 * strength * (1 - i / steps) ** 1.7))
+        md.ellipse([cx - r, cy - r, cx + r, cy + r], fill=int(255 * strength * (1 - i / steps) ** 1.7))
     return mask.resize((w, h), Image.BILINEAR)
 
 def cover_fit(img: Image.Image, size: tuple[int, int]) -> Image.Image:
@@ -379,29 +362,24 @@ def load_flat_rgb(path_str: str, _mtime: float) -> bytes | None:
     return buf.getvalue()
 
 def header_art() -> Image.Image | None:
-    if not HEADER_IMG.exists():
-        return None
+    if not HEADER_IMG.exists(): return None
     raw = load_flat_rgb(str(HEADER_IMG), HEADER_IMG.stat().st_mtime)
     return Image.open(io.BytesIO(raw)).convert("RGB") if raw else None
 
 def gate_payload(row: pd.Series) -> str:
-    parts = ["PASS", EVENT_NAME, f"Seat: {row['seat_id']}",
-             f"Name: {row['name']}", f"Phone: {row['phone']}"]
-    if MAPS_URL:
-        parts.append(f"Maps: {MAPS_URL}")
+    parts = ["PASS", EVENT_NAME, f"Seat: {row['seat_id']}", f"Name: {row['name']}", f"Phone: {row['phone']}"]
+    if MAPS_URL: parts.append(f"Maps: {MAPS_URL}")
     return " | ".join(parts)
 
 def qr_image(payload: str, edge_px: int) -> Image.Image:
-    qr = qrcode.QRCode(version=None, box_size=10, border=3,
-                       error_correction=qrcode.constants.ERROR_CORRECT_L)
+    qr = qrcode.QRCode(version=None, box_size=10, border=3, error_correction=qrcode.constants.ERROR_CORRECT_L)
     qr.add_data(payload)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
     return img.resize((edge_px, edge_px), Image.NEAREST)
 
 def qr_px_per_module(payload: str, edge_px: int = round(QR_PX * OUT_SCALE)) -> float:
-    probe = qrcode.QRCode(version=None, box_size=1, border=3,
-                          error_correction=qrcode.constants.ERROR_CORRECT_L)
+    probe = qrcode.QRCode(version=None, box_size=1, border=3, error_correction=qrcode.constants.ERROR_CORRECT_L)
     probe.add_data(payload)
     probe.make(fit=True)
     total = probe.modules_count + 6
@@ -411,8 +389,7 @@ def ticket_digest(row: pd.Series) -> str:
     seed = f"{EVENT_NAME}|{row['seat_id']}|{row['phone']}|{row['booked_at']}"
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()
 
-def draw_security_bars(draw: ImageDraw.ImageDraw, x: float, y: float,
-                       w: float, h: float, digest: str, s: int) -> None:
+def draw_security_bars(draw: ImageDraw.ImageDraw, x: float, y: float, w: float, h: float, digest: str, s: int) -> None:
     raw = bytes.fromhex(digest)
     cx, i = x, 0
     while cx < x + w and i < 512:
@@ -432,9 +409,7 @@ def _draw_background(canvas: Image.Image, s: int) -> None:
     if art is not None:
         bed = cover_fit(art, (w, h))
         bed = bed.filter(ImageFilter.GaussianBlur(5 * s)).point(lambda v: int(v * 0.52))
-        canvas.paste(bed, (0, 0), vertical_mask(
-            (w, h), [(0.00, 0.55), (0.13, 0.28), (0.25, 0.00), (0.78, 0.00), (0.91, 0.22), (1.00, 0.40)],
-        ))
+        canvas.paste(bed, (0, 0), vertical_mask((w, h), [(0.00, 0.55), (0.13, 0.28), (0.25, 0.00), (0.78, 0.00), (0.91, 0.22), (1.00, 0.40)]))
     gold_layer = Image.new("RGB", (w, h), RGB_GOLD)
     canvas.paste(gold_layer, (0, 0), radial_glow((w, h), (w * 0.04, -h * 0.16), w * 0.58, 0.24))
     canvas.paste(gold_layer, (0, 0), radial_glow((w, h), (w * 0.90, h * 1.12), w * 0.40, 0.14))
@@ -452,13 +427,9 @@ def _draw_frame(canvas: Image.Image, w: int, h: int, s: int) -> None:
     inset, radius = 15 * s, 26 * s
     _draw_gold_rule(canvas, (inset, inset, w - inset, h - inset), radius, max(1, 2 * s))
     draw = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle([inset + 7 * s, inset + 7 * s, w - inset - 7 * s, h - inset - 7 * s],
-                           radius=radius - 5 * s, outline=(122, 100, 24), width=max(1, s))
+    draw.rounded_rectangle([inset + 7 * s, inset + 7 * s, w - inset - 7 * s, h - inset - 7 * s], radius=radius - 5 * s, outline=(122, 100, 24), width=max(1, s))
     arm = 26 * s
-    for cx, cy, dx, dy in (
-        (inset + 22 * s, inset + 22 * s, 1, 1), (w - inset - 22 * s, inset + 22 * s, -1, 1),
-        (inset + 22 * s, h - inset - 22 * s, 1, -1), (w - inset - 22 * s, h - inset - 22 * s, -1, -1),
-    ):
+    for cx, cy, dx, dy in ((inset + 22 * s, inset + 22 * s, 1, 1), (w - inset - 22 * s, inset + 22 * s, -1, 1), (inset + 22 * s, h - inset - 22 * s, 1, -1), (w - inset - 22 * s, h - inset - 22 * s, -1, -1)):
         draw.line([cx, cy, cx + arm * dx, cy], fill=RGB_GOLD, width=max(1, 2 * s))
         draw.line([cx, cy, cx, cy + arm * dy], fill=RGB_GOLD, width=max(1, 2 * s))
 
@@ -817,46 +788,51 @@ def inject_theme(intro: bool = False) -> None:
     .chip--map {{ border-color:rgba(212,175,55,.5); background:rgba(212,175,55,.11); }}
     a.chip, a.chip:link, a.chip:visited, a.chip:hover {{ text-decoration:none !important; color:#EFE8D8 !important; }}
 
-    /* ============ TIER CARDS (GOLD) ============ */
-    .tier-grid {{ display:flex; flex-wrap:wrap; gap:.75rem; margin-top:.9rem; }}
-    .tier {{ position:relative; overflow:hidden; flex:1 1 200px; min-width:190px; max-width:100%;
-             padding:1rem 1.15rem; border-radius:15px; border:1px solid #D4AF37;
-             background:linear-gradient(135deg, rgba(212,175,55,0.1), rgba(0,0,0,0.8));
-             box-shadow:inset 0 1px 0 rgba(255,255,255,.06); }}
-    .tier-price {{ font-size:1.8rem; font-weight:900; line-height:1.15; font-variant-numeric:tabular-nums;
+    /* ============ TIER CARDS (CAROUSEL FIX) ============ */
+    .tier-grid {{ 
+        display:flex; 
+        flex-wrap:nowrap !important; 
+        overflow-x:auto; 
+        gap:.75rem; 
+        margin-top:.9rem; 
+        padding-bottom:10px; /* space for native scrollbar if any */
+        -webkit-overflow-scrolling:touch; 
+        scrollbar-width:none; /* Firefox */
+    }}
+    .tier-grid::-webkit-scrollbar {{ display:none; }} /* Chrome/Safari */
+    .tier {{ 
+        position:relative; overflow:hidden; 
+        flex: 0 0 160px !important; 
+        width: 160px !important; 
+        min-width: 160px !important; 
+        padding:1rem 1.15rem; border-radius:15px; border:1px solid #D4AF37;
+        background:linear-gradient(135deg, rgba(212,175,55,0.1), rgba(0,0,0,0.8));
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.06); 
+    }}
+    .tier-price {{ font-size:1.6rem; font-weight:900; line-height:1.15; font-variant-numeric:tabular-nums;
                    background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
                    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
                    filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
     .tier-rows {{ font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
-    @media (max-width:640px) {{
-        .tier {{ flex:1 1 100%; min-width:0; padding:.85rem 1rem; }}
-        .tier-price {{ font-size:1.55rem; }}
-    }}
 
-    /* ============ SEAT MAP (STRICT GRID FIX FOR STREAMLIT) ============ */
-    div[class*="st-key-seatrow_"] > div > div[data-testid="stVerticalBlock"],
-    div[class*="st-key-seatrow_"] [data-testid="stVerticalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
+    /* ============ SEAT MAP (PYTHON CHUNK OVERRIDE) ============ */
+    /* By generating st.columns(5) in Python, Streamlit automatically groups them.
+       We just need to STOP Streamlit from stacking those specific columns on mobile. */
+    div[class*="st-key-seatrow_"] [data-testid="stHorizontalBlock"] {{
+        flex-wrap: nowrap !important;
         gap: 6px !important;
-        padding-bottom: 10px !important;
+        margin-bottom: 6px !important;
     }}
-    div[class*="st-key-seat_"] {{
-        width: calc(20% - 6px) !important; /* STRICTLY 5 SEATS PER ROW ON MOBILE */
-        flex: 0 0 auto !important;
-        min-width: 0 !important;
+    div[class*="st-key-seatrow_"] [data-testid="column"] {{
+        width: 20% !important;
+        min-width: 20% !important;
+        flex: 1 1 20% !important;
     }}
-    @media (min-width: 641px) {{
-        div[class*="st-key-seat_"] {{
-            width: calc(10% - 6px) !important; /* 10 SEATS PER ROW ON DESKTOP */
-        }}
-    }}
+    /* The Seat Button styling */
     div[class*="st-key-seat_"] button {{
         width: 100% !important;
         height: auto !important;
-        min-height: 52px !important;
-        aspect-ratio: 1 / 1 !important; /* FORCE PERFECT SQUARE */
+        aspect-ratio: 1 / 1 !important; /* Force squares */
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
@@ -867,6 +843,7 @@ def inject_theme(intro: bool = False) -> None:
         border:1px solid rgba(212,175,55,.55) !important;
         background-color:rgba(212,175,55,.07) !important;
         color:#F1E4BC !important;
+        white-space: pre-wrap !important;
         transition:transform .07s ease, box-shadow .18s ease, background-color .18s ease !important; 
     }}
     div[class*="st-key-seat_"] button p {{
@@ -874,16 +851,19 @@ def inject_theme(intro: bool = False) -> None:
         font-weight: 800 !important;
         white-space: pre-wrap !important;
         margin: 0 !important;
+        text-align: center !important;
     }}
     div[class*="st-key-seat_"] button:hover:not(:disabled) {{
         background-color:rgba(212,175,55,.24) !important; border-color:{GOLD} !important;
         box-shadow:0 0 16px rgba(212,175,55,.6) !important; transform:translateY(-2px); 
     }}
+    /* Blocked/Taken Seats - Grey but visible price */
     div[class*="st-key-seat_"] button:disabled {{
         border:1px solid rgba(255,255,255,.14) !important; background-color:#1a1a1a !important;
         color:rgba(255,255,255,.4) !important; opacity:1 !important; cursor:not-allowed !important; text-decoration:none !important; 
     }}
     div[class*="st-key-seat_"] button:disabled p {{ color:rgba(255,255,255,.4) !important; text-decoration:none !important; }}
+    /* Selected Seats in Cart */
     div[class*="st-key-seat_"] button[kind="primary"], div[class*="st-key-seat_"] [data-testid="stBaseButton-primary"] {{
         background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important; background-color:{GOLD} !important;
         color:#12100C !important; border:none !important; box-shadow:0 0 22px rgba(212,175,55,.9) !important; 
@@ -891,7 +871,6 @@ def inject_theme(intro: bool = False) -> None:
     div[class*="st-key-seat_"] button[kind="primary"] p {{ color:#12100C !important; }}
 
     @media (max-width: 640px) {{
-        div[class*="st-key-seat_"] button {{ min-height: 48px !important; }}
         div[class*="st-key-seat_"] button p {{ font-size: 0.55rem !important; }}
     }}
 
@@ -1171,7 +1150,7 @@ def step_choose(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if st.button("START BOOKING", type="primary", width="stretch", key="start_booking"):
         goto_step(2)
 
-# --- STEP 2 (CART LOGIC) ---
+# --- STEP 2 (CART LOGIC & PYTHON CHUNKED GRID) ---
 
 def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
@@ -1192,24 +1171,29 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
         open_count = sum(1 for n in range(1, cap + 1) if statuses.get(f"{row_letter}{n}", AVAILABLE) == AVAILABLE)
         _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,} &middot; {open_count} open</span></div>')
 
+        # THIS IS THE FIX: We use Python to create exact columns of 5. 
+        # Streamlit tries to stack columns on mobile, but our CSS override prevents it.
         with st.container(key=f"seatrow_{row_letter}"):
-            for number in range(1, cap + 1):
-                seat = f"{row_letter}{number}"
-                taken = statuses.get(seat, AVAILABLE) != AVAILABLE
-                is_mine = seat in cart
-                
-                label = f"{seat}\n₹{price:,}"
-                if st.button(
-                    label,
-                    key=f"seat_{seat}",
-                    disabled=taken,
-                    type="primary" if is_mine else "secondary",
-                ):
-                    if is_mine:
-                        cart.remove(seat)
-                    else:
-                        cart.append(seat)
-                    st.rerun()
+            for chunk_start in range(1, cap + 1, 5):
+                cols = st.columns(5)
+                for i in range(5):
+                    number = chunk_start + i
+                    if number > cap: break
+                    seat = f"{row_letter}{number}"
+                    taken = statuses.get(seat, AVAILABLE) != AVAILABLE
+                    is_mine = seat in cart
+                    label = f"{seat}\n₹{price:,}"
+                    
+                    with cols[i]:
+                        if st.button(
+                            label,
+                            key=f"seat_{seat}",
+                            disabled=taken,
+                            type="primary" if is_mine else "secondary",
+                        ):
+                            if is_mine: cart.remove(seat)
+                            else: cart.append(seat)
+                            st.rerun()
 
 def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if not available_seats(df):
@@ -1495,7 +1479,8 @@ def render_pricing_controller(prices: dict[str, int]) -> None:
                     save_prices(new_prices)
                     st.success(" · ".join(f"{t} ₹{new_prices[t]:,}" for t in TIER_ORDER), icon="✅")
                     st.rerun()
-                except Exception as exc: st.error(f"Could not write settings: {exc}", icon="🔌")
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Could not write settings: {exc}", icon="🔌")
 
 def render_gate_scanner(df: pd.DataFrame) -> None:
     if not HAS_CV2: st.info("Camera decoding needs `opencv-python-headless`.", icon="📷")
