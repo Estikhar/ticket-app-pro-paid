@@ -877,10 +877,15 @@ def inject_theme(intro: bool = False) -> None:
 
     /* Invisible Aisle Spacer - FIXED AND 100% INVISIBLE */
     div[class*="st-key-aisle_"] {{
-        visibility: hidden !important;
-        width: 24px !important;
-        min-width: 24px !important;
-        margin-right: 6px !important;
+        width: 20px !important;
+        min-width: 20px !important;
+        flex: 0 0 20px !important;
+        height: 32px !important;
+        background: transparent !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: inline-block !important;
     }}
 
     /* Mobile Squeeze for Seats */
@@ -898,9 +903,10 @@ def inject_theme(intro: bool = False) -> None:
         div[class*="st-key-seatbtn_"] button p {{ font-size: 10px !important; }}
         
         div[class*="st-key-aisle_"] {{
-            width: 16px !important; 
-            min-width: 16px !important; 
-            margin-right: 4px !important;
+            width: 12px !important; 
+            min-width: 12px !important; 
+            flex: 0 0 12px !important;
+            height: 26px !important;
         }}
     }}
 
@@ -1029,6 +1035,7 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
+    # The White Box Container
     with st.container(key="WHITE_MAP_BOX"):
         _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
@@ -1040,9 +1047,8 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
             with st.container(key=f"MAPROW_{row_letter}"):
                 for i, item in enumerate(layout):
                     if item == "AISLE":
-                        # Completely invisible and disabled spacer
-                        st.button(" ", key=f"aisle_{row_letter}_{i}", disabled=True)
-                        _html(f'<style>div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(button[key="aisle_{row_letter}_{i}"]) {{ visibility: hidden !important; width: 15px !important; min-width: 15px !important; }}</style>')
+                        # THE PURE NATIVE HTML FIX FOR AISLE (No buttons, no st.columns)
+                        st.container(key=f"aisle_{row_letter}_{i}")
                     else:
                         seat = f"{row_letter}{item}"
                         taken = statuses.get(seat, AVAILABLE) != AVAILABLE
