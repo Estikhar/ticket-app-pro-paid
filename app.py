@@ -772,37 +772,37 @@ def inject_theme(intro: bool = False) -> None:
     .tier-rows {{ font-size:.60rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(236,231,218,.8); }}
 
     /* ========================================================
-       THE BULLETPROOF WHITE SEATING BOX & HORIZONTAL MAP HACK
+       THE BULLETPROOF WHITE SEATING BOX & HORIZONTAL SCROLL HACK
        ======================================================== */
     
     /* 1. The White Box wrapper */
-    div.st-key-WHITE_MAP_BOX {{
+    div[class*="st-key-WHITE_MAP_BOX"] {{
         background-color: #FFFFFF !important;
         border-radius: 20px !important;
         padding: 20px 10px !important;
         box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
         margin-bottom: 20px !important;
     }}
-    div.st-key-WHITE_MAP_BOX * {{ color: #111111 !important; }}
+    div[class*="st-key-WHITE_MAP_BOX"] * {{ color: #111111 !important; }}
 
-    /* 2. Force Streamlit to NEVER stack these containers (No Columns used in Python) */
-    div[class*="st-key-MAPROW_"] > div > div[data-testid="stVerticalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important; /* Forces a single straight line */
-        overflow-x: auto !important; /* Swipe horizontally */
+    /* 2. THE LADDER KILLER: Force elements to be inline-block, bypassing Flexbox entirely */
+    div[class*="st-key-MAPROW_"] > div > div[data-testid="stVerticalBlock"],
+    div[class*="st-key-MAPROW_"] > div[data-testid="stVerticalBlock"],
+    div[class*="st-key-MAPROW_"] {{
+        display: block !important;
+        white-space: nowrap !important;
+        overflow-x: auto !important;
         overflow-y: hidden !important;
-        justify-content: flex-start !important; /* Pack from left to right, NO stretching */
-        align-items: center !important;
-        gap: 6px !important;
-        padding-bottom: 12px !important; /* Space for scrollbar */
+        padding-bottom: 12px !important;
         width: 100% !important;
         scrollbar-width: thin;
         scrollbar-color: rgba(212,175,55,0.3) transparent;
     }}
+    div[class*="st-key-MAPROW_"]::-webkit-scrollbar,
     div[class*="st-key-MAPROW_"] > div > div[data-testid="stVerticalBlock"]::-webkit-scrollbar {{
         height: 5px !important;
     }}
+    div[class*="st-key-MAPROW_"]::-webkit-scrollbar-thumb,
     div[class*="st-key-MAPROW_"] > div > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb {{
         background: rgba(212,175,55,0.3) !important; 
         border-radius: 4px !important;
@@ -810,17 +810,18 @@ def inject_theme(intro: bool = False) -> None:
 
     /* 3. Stop Streamlit Element Containers from taking full width */
     div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"] {{
-        width: 30px !important;
-        min-width: 30px !important;
-        flex: 0 0 30px !important;
-        margin: 0 !important;
+        display: inline-block !important;
+        vertical-align: middle !important;
+        width: 32px !important;
+        margin-right: 4px !important;
     }}
 
     /* 4. The Seat Buttons */
     div[class*="st-key-MAPROW_"] button {{
-        width: 30px !important;
-        height: 30px !important;
-        min-height: 30px !important;
+        width: 100% !important;
+        aspect-ratio: 1/1 !important; /* Perfect square */
+        height: 32px !important;
+        min-height: 32px !important;
         padding: 0 !important;
         margin: 0 !important;
         display: flex !important;
@@ -842,6 +843,7 @@ def inject_theme(intro: bool = False) -> None:
     div[class*="st-key-MAPROW_"] button[kind="secondary"] {{
         border: 1px solid #34D07A !important;
         background-color: rgba(52,208,122,0.15) !important;
+        color: #000000 !important;
     }}
     div[class*="st-key-MAPROW_"] button[kind="secondary"] p {{ color: #000000 !important; }}
     div[class*="st-key-MAPROW_"] button[kind="secondary"]:hover:not(:disabled) {{ 
@@ -872,23 +874,17 @@ def inject_theme(intro: bool = False) -> None:
     /* Invisible Aisle Spacer */
     div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(.map-aisle) {{
         width: 15px !important; 
-        min-width: 15px !important; 
-        flex: 0 0 15px !important;
+        background: transparent !important;
+        border: none !important;
     }}
-    .map-aisle {{ width: 100% !important; height: 10px !important; display: inline-block; }}
 
     /* Mobile Squeeze for Seats */
     @media (max-width: 640px) {{
-        div[class*="st-key-MAPROW_"] > div > div[data-testid="stVerticalBlock"] {{
-            gap: 4px !important; 
-        }}
         div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"] {{
             width: 26px !important;
-            min-width: 26px !important;
-            flex: 0 0 26px !important;
+            margin-right: 3px !important;
         }}
         div[class*="st-key-MAPROW_"] button {{
-            width: 26px !important; 
             height: 26px !important; 
             min-height: 26px !important; 
             border-radius: 4px !important;
@@ -897,20 +893,18 @@ def inject_theme(intro: bool = False) -> None:
         
         div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(.map-aisle) {{
             width: 12px !important; 
-            min-width: 12px !important; 
-            flex: 0 0 12px !important;
         }}
     }}
 
     /* STAGE and TEXT styling inside White Box */
     .stage {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center; font-size:.7rem; font-weight:900; letter-spacing:.5em; color:#0D0B06 !important; border-radius:0 0 90px 90px / 0 0 26px 26px; background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); box-shadow:0 14px 44px rgba(212,175,55,.4); }}
     
-    .st-key-WHITE_MAP_BOX .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
-    .st-key-WHITE_MAP_BOX .rowtag b {{ font-size:1.1rem; font-weight:900; color:#000000 !important; letter-spacing:.06em; }}
-    .st-key-WHITE_MAP_BOX .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#666666 !important; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .rowtag {{ display:flex; align-items:baseline; gap:.6rem; margin:1.2rem 0 .4rem; padding-bottom:.2rem; border-bottom:1px solid #EEEEEE; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .rowtag b {{ font-size:1.1rem; font-weight:900; color:#000000 !important; letter-spacing:.06em; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .rowtag span {{ font-size:.65rem; letter-spacing:.15em; font-weight:800; text-transform:uppercase; color:#666666 !important; }}
     
-    .st-key-WHITE_MAP_BOX .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
-    .st-key-WHITE_MAP_BOX .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .legend {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1.1rem; margin:.2rem 0 1.2rem; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:#555555 !important; }}
+    div[class*="st-key-WHITE_MAP_BOX"] .legend i {{ display:inline-block; width:15px; height:15px; border-radius:4px; margin-right:.45rem; vertical-align:-3px; }}
     
     /* Match Legend colors to the new seat colors */
     .lg-free {{ border:1px solid #34D07A; background:rgba(52,208,122,0.15); }}
@@ -1026,7 +1020,6 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
     statuses = dict(zip(df["seat_id"], df["status"]))
     cart = st.session_state.setdefault("_cart", [])
 
-    # The White Box Container
     with st.container(key="WHITE_MAP_BOX"):
         _html('<div class="stage">S T A G E</div><div class="legend"><span><i class="lg-free"></i>Available</span><span><i class="lg-sel"></i>Your seats</span><span><i class="lg-gone"></i>Taken/Reserved</span></div>')
 
@@ -1035,11 +1028,15 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> None:
             price = prices[tier]
             _html(f'<div class="rowtag"><b>ROW {row_letter}</b><span>{tier} &middot; &#8377;{price:,}</span></div>')
 
-            # NO st.columns anywhere! Just sequential buttons inside a mapped container.
+            # NO ST.COLUMNS AT ALL.
+            # Buttons are emitted sequentially in a plain container.
+            # Our new inline-block CSS ensures they never stack vertically.
             with st.container(key=f"MAPROW_{row_letter}"):
-                for item in layout:
+                for i, item in enumerate(layout):
                     if item == "AISLE":
-                        st.markdown('<div class="map-aisle"></div>', unsafe_allow_html=True)
+                        # We use a disabled invisible button to create the exact aisle gap safely
+                        st.button(" ", key=f"aisle_{row_letter}_{i}", disabled=True)
+                        _html(f'<style>div[class*="st-key-MAPROW_"] [data-testid="stElementContainer"]:has(button[key="aisle_{row_letter}_{i}"]) {{ visibility: hidden !important; width: 15px !important; min-width: 15px !important; }}</style>')
                     else:
                         seat = f"{row_letter}{item}"
                         taken = statuses.get(seat, AVAILABLE) != AVAILABLE
@@ -1278,7 +1275,7 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
     a.metric("Sold", sold)
     b.metric("Pending", pending)
     c.metric("Open", max(SELLABLE_SEATS - sold - pending, 0))
-    d.metric("Revenue", f"₹{revenue:,}")
+    d.metric("Revenue", f"Revenue is hidden until live")
 
     tracker(sold, pending, SELLABLE_SEATS)
 
