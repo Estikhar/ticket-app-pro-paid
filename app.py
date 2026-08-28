@@ -3,23 +3,6 @@
  A FOR AMITABH  ·  The Vvineet Chaudhary Show
  PREMIUM PAID TICKETING  —  2-step async payment verification
 ================================================================================
- FLOW
-   Tab 1  Book        pick a seat -> see the tier price -> pay by UPI ->
-                      submit Name / Phone / 12-digit UTR -> Pending_Verification
-   Tab 2  Download    enter phone -> if Booked, the JPEG pass is generated,
-                      auto-downloaded and shown inline
-   Admin              verification queue (approve / reject), live pricing
-                      controller, gate check-in scanner, database reset
-
- No PDF libraries. The pass is drawn with Pillow and saved as JPEG.
-
- SEATING NOTE
-   Rows A,B,C,E,F,G,H,I,J carry seats 1-20; Row D carries 1-10. Total 190.
-   The pre-block list includes D11-D20, which do not exist under that matrix.
-   Blocking is intersected with the real seat set and skipped entries are
-   reported in Admin rather than silently dropped. Both readings of the spec
-   (D=10 or D=20) yield the same 157 sellable seats.
-================================================================================
 """
 
 from __future__ import annotations
@@ -42,16 +25,12 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from streamlit.components.v1 import html as components_html
 from streamlit_gsheets import GSheetsConnection
 
-# QR decoding for the gate scanner is optional — the rest of the app must run
-# without it rather than refusing to start.
 try:
     import cv2
     import numpy as np
-
     HAS_CV2: Final[bool] = True
 except Exception:  # noqa: BLE001
     HAS_CV2: Final[bool] = False
-
 
 # =============================================================================
 # 1. SEATING MATRIX
@@ -65,14 +44,13 @@ SEAT_ORDER: Final[list[str]] = [
     f"{row}{num}" for row, cap in ROW_CAPACITIES.items() for num in range(1, cap + 1)
 ]
 SEAT_RANK: Final[dict[str, int]] = {seat: i for i, seat in enumerate(SEAT_ORDER)}
-TOTAL_SEATS: Final[int] = len(SEAT_ORDER)  # 190
+TOTAL_SEATS: Final[int] = len(SEAT_ORDER)
 
-# House kills — seeded as Booked so they can never be sold.
 PRE_BLOCKED_RANGES: Final[dict[str, range]] = {
-    "A": range(6, 15),    # A6  - A14
-    "D": range(11, 21),   # D11 - D20  <- does not exist; reported, not silent
-    "G": range(1, 15),    # G1  - G14
-    "H": range(1, 11),    # H1  - H10
+    "A": range(6, 15),
+    "D": range(11, 21),
+    "G": range(1, 15),
+    "H": range(1, 11),
 }
 _REQUESTED_BLOCKS: Final[set[str]] = {
     f"{row}{num}" for row, rng in PRE_BLOCKED_RANGES.items() for num in rng
@@ -81,10 +59,9 @@ BLOCKED_SEATS: Final[set[str]] = {s for s in _REQUESTED_BLOCKS if s in SEAT_RANK
 IMPOSSIBLE_BLOCKS: Final[list[str]] = sorted(
     _REQUESTED_BLOCKS - BLOCKED_SEATS, key=lambda s: (s[0], int(s[1:]))
 )
-SELLABLE_SEATS: Final[int] = TOTAL_SEATS - len(BLOCKED_SEATS)  # 157
+SELLABLE_SEATS: Final[int] = TOTAL_SEATS - len(BLOCKED_SEATS)
 BLOCKED_MARK: Final[str] = "-- HOUSE BLOCK --"
 
-# --- Pricing tiers -----------------------------------------------------------
 ROW_TIER: Final[dict[str, str]] = {
     "A": "VVIP", "B": "VVIP",
     "C": "VIP", "D": "VIP", "E": "VIP", "F": "VIP", "G": "VIP",
@@ -92,7 +69,6 @@ ROW_TIER: Final[dict[str, str]] = {
 }
 TIER_ORDER: Final[tuple[str, ...]] = ("VVIP", "VIP", "PREMIUM")
 DEFAULT_PRICES: Final[dict[str, int]] = {"VVIP": 5000, "VIP": 2400, "PREMIUM": 1000}
-
 
 # =============================================================================
 # 2. SHEET SCHEMA
@@ -113,7 +89,7 @@ VALID_STATUS: Final[tuple[str, ...]] = (AVAILABLE, PENDING, BOOKED)
 IST: Final[ZoneInfo] = ZoneInfo("Asia/Kolkata")
 STATS_TTL: Final[int] = 8
 WRITE_ATTEMPTS: Final[int] = 4
-ONE_PASS_PER_PHONE: Final[bool] = True
+ONE_PASS_PER_PHONE: Final[bool] = False
 
 BASE_DIR: Final[Path] = Path(__file__).parent
 HEADER_IMG: Final[Path] = BASE_DIR / "header.png"
@@ -121,10 +97,8 @@ FOOTER_IMG: Final[Path] = BASE_DIR / "footer.png"
 UPI_QR_IMG: Final[Path] = BASE_DIR / "upi_qr.png"
 ASSET_DIR: Final[Path] = BASE_DIR / "assets"
 
-
 def cfg(key: str, default: Any = "") -> Any:
     return st.secrets.get("app", {}).get(key, default)
-
 
 EVENT_NAME: Final[str] = cfg("event_name", "A for Amitabh")
 EVENT_SUBTITLE: Final[str] = cfg("event_subtitle", "The Vvineet Chaudhary Show")
@@ -140,7 +114,6 @@ SPLASH_HOLD: Final[float] = 0.85
 SPLASH_FADE: Final[float] = 0.65
 REVEAL_BASE: Final[float] = 0.72
 
-# --- Palette -----------------------------------------------------------------
 GOLD_STOPS: Final[tuple[str, ...]] = (
     "#BF953F", "#FCF6BA", "#B38728", "#FBF5B7", "#AA771C",
 )
@@ -150,8 +123,6 @@ GOLD_SOFT: Final[str] = "#E8CC6B"
 OBSIDIAN: Final[str] = "#090B10"
 NEON: Final[str] = "#34D07A"
 AMBER: Final[str] = "#F0A93B"
-# Forms use a luminous green channel on purpose: gold is the brand, green is
-# "actionable". Splitting the two ends the ambiguity of gold-on-gold inputs.
 LIME: Final[str] = "rgba(144,238,144,1)"
 LIME_TEXT: Final[str] = "rgba(200,255,200,1)"
 
@@ -164,7 +135,6 @@ RGB_MUTED: Final[tuple[int, int, int]] = (143, 149, 160)
 RGB_TEXT: Final[tuple[int, int, int]] = (246, 243, 236)
 RGB_SILVER: Final[tuple[int, int, int]] = (226, 231, 240)
 
-# --- Ticket canvas -----------------------------------------------------------
 TICKET_W: Final[int] = 1600
 TICKET_H: Final[int] = 600
 SS: Final[int] = 2
@@ -173,37 +143,20 @@ STUB_X: Final[int] = 1058
 QR_PX: Final[int] = 232
 JPEG_QUALITY: Final[int] = 94
 
-
 def seat_row(seat_id: str) -> str:
     return str(seat_id)[:1].upper()
-
 
 def seat_tier(seat_id: str) -> str:
     return ROW_TIER.get(seat_row(seat_id), "PREMIUM")
 
-
 def now_ist() -> str:
     return datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S")
 
-
 def money_text(value: Any) -> str:
-    """A stray sheet value must never crash ticket generation."""
     try:
         return f"{float(str(value).replace(',', '').strip()):,.0f}"
     except (TypeError, ValueError):
         return str(value)
-
-
-# =============================================================================
-# 3. FONT SYSTEM
-# =============================================================================
-# Pillow's built-in default is a bitmap face that looks like a receipt printer.
-# Two further traps, both verified by rendering:
-#   * The Rupee sign (U+20B9) is NOT in every TTF. DejaVu has it, Liberation
-#     does not — a silent font swap turns the price into a tofu box.
-#   * Google's OFL faces ship as VARIABLE fonts. FreeType loads the default
-#     instance (Regular); asking for Bold and silently getting Regular is why
-#     programmatic tickets look limp. set_variation_by_name() pulls the weight.
 
 FONT_SOURCES: Final[dict[str, str]] = {
     "Inter.ttf":
@@ -228,10 +181,7 @@ SYSTEM_SERIF: Final[tuple[str, ...]] = (
     "C:/Windows/Fonts/georgiab.ttf",
 )
 
-
 def _fetch_font(name: str) -> Path | None:
-    """One-time download into assets/. A ticketing portal must never fail to
-    issue a pass because a CDN was slow, so every failure is swallowed."""
     target = ASSET_DIR / name
     if target.exists():
         return target
@@ -245,12 +195,11 @@ def _fetch_font(name: str) -> Path | None:
             return None
         tmp = target.with_suffix(".part")
         tmp.write_bytes(payload)
-        ImageFont.truetype(str(tmp), 24)      # prove it parses before publishing
+        ImageFont.truetype(str(tmp), 24)
         tmp.replace(target)
         return target
-    except Exception:                          # noqa: BLE001 — never fatal
+    except Exception:
         return None
-
 
 @lru_cache(maxsize=8)
 def _face(kind: str) -> tuple[str | None, str | None]:
@@ -270,7 +219,6 @@ def _face(kind: str) -> tuple[str | None, str | None]:
             return candidate, None
     return None, None
 
-
 ROLES: Final[dict[str, tuple[str, str | None]]] = {
     "title": ("serif", "Black"),
     "subtitle": ("serif", "Medium"),
@@ -278,7 +226,6 @@ ROLES: Final[dict[str, tuple[str, str | None]]] = {
     "strong": ("sans", "Bold"),
     "label": ("sans", "Medium"),
 }
-
 
 @lru_cache(maxsize=256)
 def font(role: str, size: int) -> Any:
@@ -294,57 +241,38 @@ def font(role: str, size: int) -> Any:
     if weight:
         try:
             fnt.set_variation_by_name(weight)
-        except Exception:                      # noqa: BLE001 — static face
+        except Exception:
             pass
     return fnt
 
-
 @lru_cache(maxsize=16)
 def font_has_glyph(role: str, char: str) -> bool:
-    """Render the char beside a guaranteed-unmapped codepoint; identical
-    bitmaps mean the font is drawing .notdef, so the glyph is missing."""
     probe = font(role, 48)
-
     def stamp(text: str) -> bytes:
         img = Image.new("L", (96, 96), 0)
         ImageDraw.Draw(img).text((6, 6), text, font=probe, fill=255)
         return img.tobytes()
-
     target = stamp(char)
     return target != stamp("\uFFFE") and target != stamp(" ")
 
-
 def fonts_ready() -> bool:
     return _face("sans")[0] is not None
-
 
 @lru_cache(maxsize=2)
 def rupee() -> str:
     return "\u20b9" if font_has_glyph("strong", "\u20b9") else "Rs. "
 
-
 @lru_cache(maxsize=2)
 def ellipsis() -> str:
     return "\u2026" if font_has_glyph("strong", "\u2026") else "..."
 
-
-# =============================================================================
-# 4. DRAWING PRIMITIVES
-# =============================================================================
-
-
 def text_w(draw: ImageDraw.ImageDraw, text: str, fnt: Any, tracking: float = 0) -> float:
     return draw.textlength(text, font=fnt) + tracking * max(len(text) - 1, 0)
-
 
 def draw_tracked(
     draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, fnt: Any,
     fill: tuple[int, int, int], tracking: float = 0, anchor: str = "la",
 ) -> None:
-    """
-    Pillow has no letter-spacing. Wide tracking on small uppercase labels is the
-    single strongest "premium print" signal, so glyphs are advanced by hand.
-    """
     x, y = xy
     if tracking <= 0:
         draw.text((x, y), text, font=fnt, fill=fill, anchor=anchor)
@@ -359,7 +287,6 @@ def draw_tracked(
         draw.text((x, y), ch, font=fnt, fill=fill, anchor="l" + vertical)
         x += draw.textlength(ch, font=fnt) + tracking
 
-
 def fit_font(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float,
              start: int, minimum: int) -> Any:
     size = start
@@ -367,14 +294,8 @@ def fit_font(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float,
         size -= 2
     return font(role, size)
 
-
 def fit_text(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float,
              start: int, minimum: int) -> tuple[Any, str]:
-    """
-    Shrink to fit, then TRUNCATE if it still overflows at the size floor.
-    Shrinking alone bottoms out and lets a 60-character name run through the
-    next column and into the stub.
-    """
     fnt = fit_font(draw, text, role, max_w, start, minimum)
     if draw.textlength(text, font=fnt) <= max_w:
         return fnt, text
@@ -383,10 +304,8 @@ def fit_text(draw: ImageDraw.ImageDraw, text: str, role: str, max_w: float,
         clipped = clipped[:-1]
     return fnt, (clipped.rstrip() + ellipsis()) if clipped else text[:1]
 
-
 @lru_cache(maxsize=4)
 def gold_ramp(size: tuple[int, int]) -> Image.Image:
-    """The five-stop metal, as a vertical ramp. Flat gold reads like clip art."""
     w, h = size
     ramp = Image.new("RGB", (1, max(h, 2)))
     px = ramp.load()
@@ -400,7 +319,6 @@ def gold_ramp(size: tuple[int, int]) -> Image.Image:
         px[0, y] = tuple(round(c0[j] + (c1[j] - c0[j]) * k) for j in range(3))
     return ramp.resize((max(w, 1), max(h, 1)), Image.BILINEAR)
 
-
 def _text_mask(size: tuple[int, int], xy: tuple[float, float], text: str,
                fnt: Any, tracking: float, anchor: str) -> Image.Image:
     mask = Image.new("L", size, 0)
@@ -408,20 +326,13 @@ def _text_mask(size: tuple[int, int], xy: tuple[float, float], text: str,
                  tracking=tracking, anchor=anchor)
     return mask
 
-
 def draw_embossed(
     canvas: Image.Image, xy: tuple[float, float], text: str, fnt: Any,
     anchor: str = "la", tracking: float = 0, glow: int = 0, emboss: int = 0,
 ) -> None:
-    """
-    Foil-stamp in three passes: dark shadow down-right, metallic ramp, pale
-    highlight up-left. Separate masks rather than ImageChops.offset, which wraps
-    at the canvas edge and would smear a glyph onto the opposite side.
-    """
     size = canvas.size
     x, y = xy
     mask = _text_mask(size, (x, y), text, fnt, tracking, anchor)
-
     if glow:
         halo = mask.filter(ImageFilter.GaussianBlur(glow))
         canvas.paste(Image.new("RGB", size, RGB_GOLD), (0, 0),
@@ -436,13 +347,7 @@ def draw_embossed(
                      hi.point(lambda v: int(v * 0.30)))
     canvas.paste(gold_ramp(size), (0, 0), mask)
 
-
 def vertical_mask(size: tuple[int, int], stops: list[tuple[float, float]]) -> Image.Image:
-    """
-    L mask from (position 0..1, alpha 0..1) stops. This is what keeps the header
-    artwork OFF the text: alpha drops to exactly zero across the detail block,
-    so contrast there is guaranteed rather than hoped for.
-    """
     w, h = size
     strip = Image.new("L", (1, max(h, 2)), 0)
     px = strip.load()
@@ -459,7 +364,6 @@ def vertical_mask(size: tuple[int, int], stops: list[tuple[float, float]]) -> Im
         px[0, y] = max(0, min(255, int(val * 255)))
     return strip.resize((max(w, 1), max(h, 1)), Image.BILINEAR)
 
-
 def radial_glow(size: tuple[int, int], centre: tuple[float, float],
                 radius: float, strength: float) -> Image.Image:
     w, h = size
@@ -474,9 +378,7 @@ def radial_glow(size: tuple[int, int], centre: tuple[float, float],
                    fill=int(255 * strength * (1 - i / steps) ** 1.7))
     return mask.resize((w, h), Image.BILINEAR)
 
-
 def cover_fit(img: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """Scale-and-crop to fill, preserving aspect ratio (never squashed)."""
     tw, th = size
     sw, sh = img.size
     scale = max(tw / sw, th / sh)
@@ -485,14 +387,8 @@ def cover_fit(img: Image.Image, size: tuple[int, int]) -> Image.Image:
     left, top = (resized.width - tw) // 2, (resized.height - th) // 2
     return resized.crop((left, top, left + tw, top + th))
 
-
 @st.cache_data(show_spinner=False)
 def load_flat_rgb(path_str: str, _mtime: float) -> bytes | None:
-    """
-    Flatten any PNG onto the ticket ground as RGB. JPEG has no alpha, and a
-    palette PNG carrying transparency composites unpredictably — flattening once
-    up front kills a whole class of "why is my banner a black rectangle" bugs.
-    """
     try:
         with Image.open(path_str) as src:
             src.load()
@@ -505,20 +401,11 @@ def load_flat_rgb(path_str: str, _mtime: float) -> bytes | None:
     flat.save(buf, "PNG")
     return buf.getvalue()
 
-
 def header_art() -> Image.Image | None:
     if not HEADER_IMG.exists():
         return None
     raw = load_flat_rgb(str(HEADER_IMG), HEADER_IMG.stat().st_mtime)
     return Image.open(io.BytesIO(raw)).convert("RGB") if raw else None
-
-
-
-
-# =============================================================================
-# 5. QR + SECURITY BARCODE
-# =============================================================================
-
 
 def gate_payload(row: pd.Series) -> str:
     parts = ["PASS", EVENT_NAME, f"Seat: {row['seat_id']}",
@@ -527,21 +414,13 @@ def gate_payload(row: pd.Series) -> str:
         parts.append(f"Maps: {MAPS_URL}")
     return " | ".join(parts)
 
-
 def qr_image(payload: str, edge_px: int) -> Image.Image:
-    """
-    ERROR_CORRECT_L keeps the grid sparse — higher levels add redundancy
-    modules, shrinking each module at a fixed print size, the opposite of what
-    a hand-held scan needs. NEAREST resize keeps module edges razor sharp;
-    LANCZOS would blur them into grey mush.
-    """
     qr = qrcode.QRCode(version=None, box_size=10, border=3,
                        error_correction=qrcode.constants.ERROR_CORRECT_L)
     qr.add_data(payload)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
     return img.resize((edge_px, edge_px), Image.NEAREST)
-
 
 def qr_px_per_module(payload: str, edge_px: int = round(QR_PX * OUT_SCALE)) -> float:
     probe = qrcode.QRCode(version=None, box_size=1, border=3,
@@ -551,25 +430,12 @@ def qr_px_per_module(payload: str, edge_px: int = round(QR_PX * OUT_SCALE)) -> f
     total = probe.modules_count + 6
     return edge_px / total if total else 0.0
 
-
 def ticket_digest(row: pd.Series) -> str:
-    """Stable per pass — the bars MUST look identical every regeneration."""
     seed = f"{EVENT_NAME}|{row['seat_id']}|{row['phone']}|{row['booked_at']}"
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()
 
-
 def draw_security_bars(draw: ImageDraw.ImageDraw, x: float, y: float,
                        w: float, h: float, digest: str, s: int) -> None:
-    """
-    Abstract security-print bars — the visual language premiere passes use to
-    signal "official document".
-
-    NOT machine-readable, by design and by honesty: it encodes nothing and no
-    scanner will read it. It IS deterministic (hashed from seat + phone + time)
-    so the same pass always renders identically; a random pattern would change
-    on every regeneration, which is exactly what a forgery looks like.
-    Everything scannable lives in the QR.
-    """
     raw = bytes.fromhex(digest)
     cx, i = x, 0
     while cx < x + w and i < 512:
@@ -584,19 +450,7 @@ def draw_security_bars(draw: ImageDraw.ImageDraw, x: float, y: float,
         cx += bar + gap
         i += 1
 
-
-# =============================================================================
-# 6. THE TICKET
-# =============================================================================
-
-
 def _draw_background(canvas: Image.Image, s: int) -> None:
-    """
-    Pitch ground. The header artwork bleeds in at the TOP and BOTTOM edges only
-    and is masked to zero across the middle band, so attendee details always sit
-    on pure black. A full-canvas watermark is precisely what makes the type look
-    muddy.
-    """
     w, h = canvas.size
     art = header_art()
     if art is not None:
@@ -607,13 +461,11 @@ def _draw_background(canvas: Image.Image, s: int) -> None:
             [(0.00, 0.55), (0.13, 0.28), (0.25, 0.00),
              (0.78, 0.00), (0.91, 0.22), (1.00, 0.40)],
         ))
-
     gold_layer = Image.new("RGB", (w, h), RGB_GOLD)
     canvas.paste(gold_layer, (0, 0),
                  radial_glow((w, h), (w * 0.04, -h * 0.16), w * 0.58, 0.24))
     canvas.paste(gold_layer, (0, 0),
                  radial_glow((w, h), (w * 0.90, h * 1.12), w * 0.40, 0.14))
-
     vign = Image.new("RGB", (w, h), (0, 0, 0))
     edge = Image.new("L", (w, h), 255)
     ImageDraw.Draw(edge).rounded_rectangle(
@@ -623,15 +475,12 @@ def _draw_background(canvas: Image.Image, s: int) -> None:
                  edge.filter(ImageFilter.GaussianBlur(int(h * 0.07)))
                      .point(lambda v: int(v * 0.9)))
 
-
 def _draw_gold_rule(canvas: Image.Image, box: tuple[float, float, float, float],
                     radius: int, width: int) -> None:
-    """A rounded rect stroked with the real metal ramp, not a flat colour."""
     mask = Image.new("L", canvas.size, 0)
     ImageDraw.Draw(mask).rounded_rectangle(box, radius=radius,
                                            outline=255, width=width)
     canvas.paste(gold_ramp(canvas.size), (0, 0), mask)
-
 
 def _draw_frame(canvas: Image.Image, w: int, h: int, s: int) -> None:
     inset, radius = 15 * s, 26 * s
@@ -650,7 +499,6 @@ def _draw_frame(canvas: Image.Image, w: int, h: int, s: int) -> None:
         draw.line([cx, cy, cx + arm * dx, cy], fill=RGB_GOLD, width=max(1, 2 * s))
         draw.line([cx, cy, cx, cy + arm * dy], fill=RGB_GOLD, width=max(1, 2 * s))
 
-
 def _draw_perforation(draw: ImageDraw.ImageDraw, x: int, h: int, s: int) -> None:
     dash, gap = 13 * s, 11 * s
     y = 44 * s
@@ -663,7 +511,6 @@ def _draw_perforation(draw: ImageDraw.ImageDraw, x: int, h: int, s: int) -> None
         draw.ellipse([x - r, cy - r, x + r, cy + r],
                      fill=RGB_INK, outline=RGB_GOLD, width=max(1, 2 * s))
 
-
 def build_ticket_jpeg(row: pd.Series) -> bytes:
     s = SS
     w, h = TICKET_W * s, TICKET_H * s
@@ -671,25 +518,21 @@ def build_ticket_jpeg(row: pd.Series) -> bytes:
     _draw_background(canvas, s)
     _draw_frame(canvas, w, h, s)
     draw = ImageDraw.Draw(canvas)
-
     stub_x = STUB_X * s
     _draw_perforation(draw, stub_x, h, s)
     digest = ticket_digest(row)
 
-    # ---------------------------------------------------- LEFT: the marquee
     lx = 60 * s
     right_edge = stub_x - 52 * s
     avail = right_edge - lx
 
     draw_tracked(draw, (lx, 50 * s), "OFFICIAL ADMISSION PASS",
                  font("label", 16 * s), RGB_GOLD, tracking=5.4 * s)
-
     title_font, title_text = fit_text(draw, EVENT_NAME, "title", avail,
                                       74 * s, 34 * s)
     draw_embossed(canvas, (lx, 82 * s), title_text, title_font,
                   glow=9 * s, emboss=3 * s)
     draw = ImageDraw.Draw(canvas)
-
     sub_font, sub_text = fit_text(draw, EVENT_SUBTITLE, "subtitle", avail,
                                   27 * s, 14 * s)
     draw_tracked(draw, (lx, 168 * s), sub_text, sub_font,
@@ -717,7 +560,6 @@ def build_ticket_jpeg(row: pd.Series) -> bytes:
     field(lx, 366 * s, "WHATSAPP", row["phone"], col_w)
     field(col2, 366 * s, "TXN / UTR", str(row.get("utr_number", "") or "—"), col_w)
 
-    # ---------------------------------------------------- value badge
     tier = seat_tier(row["seat_id"])
     paid = money_text(row.get("_price", tier_price(tier)))
     badge = f"{tier}  ·  {rupee()}{paid} PAID  ·  VERIFIED"
@@ -733,7 +575,6 @@ def build_ticket_jpeg(row: pd.Series) -> bytes:
     draw_tracked(draw, (lx + bw + 30 * s, by + bh / 2), serial,
                  font("label", 13 * s), RGB_MUTED, tracking=3.0 * s, anchor="lm")
 
-    # ---------------------------------------------------- RIGHT: the stub
     sx = stub_x + (w - 15 * s - stub_x) / 2
     stub_w = w - 15 * s - stub_x
 
@@ -758,19 +599,15 @@ def build_ticket_jpeg(row: pd.Series) -> bytes:
 
     bar_w = plate - 16 * s
     draw_security_bars(draw, sx - bar_w / 2, 476 * s, bar_w, 28 * s, digest, s)
-
     draw_tracked(draw, (sx, 516 * s), "SCAN FOR ENTRY", font("label", 15 * s),
                  RGB_GOLD, tracking=5.4 * s, anchor="ma")
     draw_tracked(draw, (sx, 540 * s), f"{seat}  ·  NON-TRANSFERABLE",
                  font("label", 11 * s), (120, 126, 136), tracking=2.2 * s,
                  anchor="ma")
 
-    # ---------------------------------------------------- render out
     out_w, out_h = round(TICKET_W * OUT_SCALE), round(TICKET_H * OUT_SCALE)
     final = canvas.resize((out_w, out_h), Image.LANCZOS)
 
-    # QR goes on AFTER the downsample at its exact output size. Resampling a QR
-    # is what turns crisp modules into grey mush.
     qr_out = round(QR_PX * OUT_SCALE)
     qr = qr_image(gate_payload(row), qr_out)
     cx = sx / s * OUT_SCALE
@@ -778,11 +615,8 @@ def build_ticket_jpeg(row: pd.Series) -> bytes:
     final.paste(qr, (round(cx - qr_out / 2), round(cy - qr_out / 2)))
 
     buf = io.BytesIO()
-    # subsampling=0 (4:4:4). JPEG's default 4:2:0 chroma subsampling visibly
-    # smears fine gold type and QR edges against a dark ground.
     final.save(buf, "JPEG", quality=JPEG_QUALITY, subsampling=0, optimize=True)
     return buf.getvalue()
-
 
 def cached_ticket(row: pd.Series) -> bytes:
     store: dict[str, bytes] = st.session_state.setdefault("tickets", {})
@@ -791,20 +625,14 @@ def cached_ticket(row: pd.Series) -> bytes:
         store[seat] = build_ticket_jpeg(row)
     return store[seat]
 
-
-
-
 # =============================================================================
-# 7. DATA LAYER  (two worksheets: passes + settings)
+# 7. DATA LAYER 
 # =============================================================================
-
 
 def get_conn() -> GSheetsConnection:
     return st.connection("gsheets", type=GSheetsConnection)
 
-
 def _normalise(df: pd.DataFrame) -> pd.DataFrame:
-    """Sheets round-trips are lossy: blanks -> NaN, phone/UTR -> '98765.0'."""
     df = df.reindex(columns=SCHEMA)
     df = df.astype(object).where(pd.notna(df), "")
     for col in SCHEMA:
@@ -814,27 +642,18 @@ def _normalise(df: pd.DataFrame) -> pd.DataFrame:
         df[col] = df[col].str.replace(r"\.0$", "", regex=True)
     df["seat_id"] = df["seat_id"].str.upper()
     df = df[df["seat_id"] != ""]
-    # Any unrecognised status is treated as Available — never as sold.
     df["status"] = df["status"].where(df["status"].isin(VALID_STATUS), AVAILABLE)
     return df.reset_index(drop=True)
-
 
 def load_seats(*, fresh: bool = False) -> pd.DataFrame:
     raw = get_conn().read(worksheet=WORKSHEET, ttl=0 if fresh else STATS_TTL)
     return _normalise(pd.DataFrame(raw))
 
-
 def save_seats(df: pd.DataFrame) -> None:
     get_conn().update(worksheet=WORKSHEET, data=df[SCHEMA])
     st.cache_data.clear()
 
-
 def blank_layout() -> pd.DataFrame:
-    """
-    Fresh matrix. Pre-blocked seats are seeded as Booked with a house marker
-    and no phone, so they can never be sold, never match a phone lookup, and
-    never inflate the attendee count.
-    """
     rows = []
     for seat in SEAT_ORDER:
         blocked = seat in BLOCKED_SEATS
@@ -849,29 +668,11 @@ def blank_layout() -> pd.DataFrame:
         })
     return pd.DataFrame(rows)
 
-
 def is_house_block(row: pd.Series) -> bool:
-    """
-    A house block is a seat the venue killed, not merely an unsold one.
-
-    Testing "has no phone" is wrong — every Available seat has no phone, which
-    made the gate report free seats as house blocks. Identify by the seeded
-    marker, or by membership of the block set for sheets seeded before the
-    marker existed.
-    """
     return (str(row.get("name", "")).strip() == BLOCKED_MARK
             or str(row.get("seat_id", "")).upper() in BLOCKED_SEATS)
 
-
-# --- settings / pricing -------------------------------------------------------
-
-
 def load_prices(*, fresh: bool = False) -> dict[str, int]:
-    """
-    Live tier pricing from the `settings` worksheet, with defaults as a floor.
-    A missing or malformed sheet must never stop the box office, so this falls
-    back rather than raising — the Admin panel reports which source was used.
-    """
     prices = dict(DEFAULT_PRICES)
     try:
         raw = get_conn().read(worksheet=SETTINGS_WORKSHEET,
@@ -887,12 +688,11 @@ def load_prices(*, fresh: bool = False) -> dict[str, int]:
                         prices[tier] = value
                 except (TypeError, ValueError):
                     continue
-    except Exception:  # noqa: BLE001 — settings are advisory, not critical
+    except Exception:
         st.session_state["_prices_fallback"] = True
         return prices
     st.session_state["_prices_fallback"] = False
     return prices
-
 
 def save_prices(prices: dict[str, int]) -> None:
     frame = pd.DataFrame(
@@ -901,28 +701,15 @@ def save_prices(prices: dict[str, int]) -> None:
     get_conn().update(worksheet=SETTINGS_WORKSHEET, data=frame[SETTINGS_SCHEMA])
     st.cache_data.clear()
 
-
 def tier_price(tier: str) -> int:
     return int(st.session_state.get("_prices", DEFAULT_PRICES).get(
         tier, DEFAULT_PRICES.get(tier, 0)))
 
-
 def seat_price(seat_id: str) -> int:
     return tier_price(seat_tier(seat_id))
 
-
-# =============================================================================
-# 8. BOOKING STATE MACHINE
-# =============================================================================
-# Sheets has no transactions and conn.update() rewrites the whole worksheet, so
-# every mutation is: read(ttl=0) -> mutate -> write -> read back and confirm the
-# row carries OUR marker -> retry if someone landed on it first.
-# Compare-and-verify, not compare-and-swap. It shrinks the window; it cannot
-# close it. With money involved, the read-back is the important half.
-
 PHONE_RE: Final[re.Pattern[str]] = re.compile(r"^[6-9]\d{9}$")
 UTR_RE: Final[re.Pattern[str]] = re.compile(r"^\d{12}$")
-
 
 def available_seats(df: pd.DataFrame, row_letter: str | None = None) -> list[str]:
     free = df[df["status"] == AVAILABLE]["seat_id"].tolist()
@@ -930,34 +717,20 @@ def available_seats(df: pd.DataFrame, row_letter: str | None = None) -> list[str
         free = [s for s in free if seat_row(s) == row_letter]
     return sorted(free, key=lambda s: SEAT_RANK.get(s, 10**6))
 
-
 def find_by_phone(df: pd.DataFrame, phone: str) -> pd.DataFrame:
     hit = df[(df["phone"] == phone) & (df["status"].isin((PENDING, BOOKED)))]
     return hit.sort_values("seat_id", key=lambda c: c.map(SEAT_RANK))
 
-
 def reserve_seat(seat_id: str, name: str, phone: str, utr: str
                  ) -> tuple[bool, pd.Series | None, str]:
-    """Seat -> Pending_Verification. No ticket is generated at this stage."""
     for _ in range(WRITE_ATTEMPTS):
         df = load_seats(fresh=True)
         if df.empty:
-            return False, None, "Seat database is empty. Ask the organiser to initialise it."
-
-        if ONE_PASS_PER_PHONE:
-            existing = find_by_phone(df, phone)
-            if not existing.empty:
-                held = existing.iloc[0]
-                return False, held, (
-                    f"This number already holds seat {held['seat_id']} "
-                    f"({held['status'].replace('_', ' ').lower()}). "
-                    "Use the Download Ticket tab.")
+            return False, None, "Seat database is empty. Ask the organiser."
 
         clash = df[(df["utr_number"] == utr) & (df["utr_number"] != "")]
         if not clash.empty:
-            return False, None, (
-                "That UTR has already been submitted against another seat. "
-                "Each transaction can only be used once.")
+            return False, None, "That UTR has already been used. Please use a unique UTR."
 
         match = df.index[df["seat_id"] == seat_id]
         if match.empty:
@@ -974,12 +747,9 @@ def reserve_seat(seat_id: str, name: str, phone: str, utr: str
         if not back.empty and back.iloc[0]["utr_number"] == utr:
             return True, back.iloc[0], f"Seat {seat_id} held for verification."
 
-    return False, None, (
-        "High demand right now — that seat was taken mid-booking. Please try again.")
-
+    return False, None, "High demand right now — that seat was taken mid-booking. Please try again."
 
 def set_status(seat_id: str, new_status: str) -> tuple[bool, str]:
-    """Approve (-> Booked) or reject (-> Available, row wiped)."""
     for _ in range(WRITE_ATTEMPTS):
         df = load_seats(fresh=True)
         match = df.index[df["seat_id"] == seat_id]
@@ -1003,26 +773,21 @@ def set_status(seat_id: str, new_status: str) -> tuple[bool, str]:
             return True, f"{seat_id} -> {new_status.replace('_', ' ')}."
     return False, "Write did not stick — please retry."
 
-
 def check_in(seat_id: str) -> tuple[bool, str, pd.Series | None]:
-    """
-    Gate admission. Only Booked passes admit, and a second scan is refused —
-    duplicate entry is the failure mode that actually costs money at the door.
-    """
     df = load_seats(fresh=True)
     match = df[df["seat_id"] == seat_id.upper()]
     if match.empty:
-        return False, f"{seat_id} is not in the seating plan.", None
+        return False, f"{seat_id} is not in the plan.", None
     row = match.iloc[0]
 
     if is_house_block(row):
-        return False, f"{seat_id} is a house block, not a sold seat.", row
+        return False, f"{seat_id} is a house block.", row
     if row["status"] == AVAILABLE:
-        return False, f"{seat_id} has not been sold — no valid pass exists.", row
+        return False, f"{seat_id} has not been sold.", row
     if row["status"] == PENDING:
-        return False, f"{seat_id} is still awaiting payment verification.", row
+        return False, f"{seat_id} is awaiting verification.", row
     if row["status"] != BOOKED:
-        return False, f"{seat_id} is not a valid pass ({row['status']}).", row
+        return False, f"{seat_id} is not a valid pass.", row
     if str(row["checkin_time"]).strip():
         return False, f"ALREADY CHECKED IN at {row['checkin_time']}.", row
 
@@ -1031,48 +796,20 @@ def check_in(seat_id: str) -> tuple[bool, str, pd.Series | None]:
     save_seats(df)
     return True, f"ADMIT — {row['name']} · {seat_id}", df.loc[idx]
 
-
 def seat_from_payload(text: str) -> str | None:
-    """Pull the seat id out of a scanned QR payload."""
     hit = re.search(r"Seat:\s*([A-J]\d{1,2})", text or "", re.IGNORECASE)
     return hit.group(1).upper() if hit else None
-
 
 # =============================================================================
 # 9. HTML / CSS INJECTION
 # =============================================================================
 
-
 def _html(markup: str) -> None:
-    """
-    The ONLY sanctioned injection path.
-
-    Not st.html(): it sanitizes its input and, depending on the Streamlit build,
-    drops a <style> block entirely. Nothing errors — the page just renders with
-    stock styling, and the #FF4B4B primary button is the tell.
-
-    Three markdown traps this also defuses:
-      * a line indented 4+ spaces becomes a CODE BLOCK, printing the stylesheet
-        onto the page as literal text;
-      * a blank line inside HTML becomes a paragraph break, injecting <p> tags
-        into the middle of the markup;
-      * a line starting '#' or '-' can parse as a heading or list item.
-    Joining with SPACES into one physical line makes all three impossible.
-    """
     cleaned = " ".join(line.strip() for line in markup.splitlines() if line.strip())
     st.markdown(cleaned, unsafe_allow_html=True)
 
-
 def inject_theme(intro: bool = False) -> None:
-    """
-    `intro=True` only on the FIRST script run of a session.
-
-    Streamlit re-executes the whole script on every interaction, so
-    unconditional entrance CSS would replay the 2s blackout and the slide-up on
-    every keystroke rerun and every form submit. The app would feel broken.
-    """
     hold, fade = SPLASH_HOLD, SPLASH_FADE
-
     if intro:
         stagger = "".join(
             f'[data-testid="stVerticalBlock"] > *:nth-child({i}) '
@@ -1092,7 +829,6 @@ def inject_theme(intro: bool = False) -> None:
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800;900&family=Playfair+Display:wght@500;700;900&display=swap');
 
-    /* ============ GROUND ============ */
     .stApp, [data-testid="stAppViewContainer"], section.main,
     [data-testid="stMain"] {{ background-color:{OBSIDIAN} !important; }}
     .stApp {{
@@ -1105,12 +841,7 @@ def inject_theme(intro: bool = False) -> None:
         background:transparent !important; }}
     .block-container {{ padding-top:1.2rem; padding-bottom:3.5rem; max-width:840px; }}
     html, body, [class*="css"] {{ font-family:Inter, system-ui, sans-serif; }}
-    ::selection {{ background:rgba(212,175,55,.32); }}
-
-    /* ============ GLASS CARDS ============ */
-    /* The metal edge is a masked ::before ring, not a border-image. A gradient
-       painted via background-clip:border-box bleeds through a translucent
-       fill and tints the whole card gold. */
+    
     .glass {{
         position:relative;
         background:rgba(255,255,255,0.03);
@@ -1133,7 +864,6 @@ def inject_theme(intro: bool = False) -> None:
                     inset 0 1px 0 rgba(255,255,255,.07),
                     0 0 44px rgba(212,175,55,.10); }}
 
-    /* ============ TYPE ============ */
     .pill {{
         display:inline-block; padding:.46rem 1.2rem; border-radius:999px;
         font-size:.63rem; font-weight:900; letter-spacing:.3em; color:#12141A;
@@ -1165,7 +895,6 @@ def inject_theme(intro: bool = False) -> None:
     .eyebrow {{ font-size:.58rem; font-weight:800; letter-spacing:.32em;
                 text-transform:uppercase; color:rgba(236,231,218,.4); }}
 
-    /* ============ META CHIPS ============ */
     .chips {{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1.1rem; }}
     .chip {{
         display:inline-flex; align-items:baseline; gap:.55rem;
@@ -1183,41 +912,14 @@ def inject_theme(intro: bool = False) -> None:
     a.chip, a.chip:link, a.chip:visited, a.chip:hover {{
         text-decoration:none !important; color:#EFE8D8 !important; }}
 
-    /* ============ PRICE ============ */
-    .price {{ display:flex; flex-wrap:wrap; gap:2.2rem; align-items:flex-end; }}
-    .price-old {{ font-size:1.4rem; font-weight:700; color:{GOLD_SOFT};
-                  text-decoration:line-through; opacity:.6;
-                  font-variant-numeric:tabular-nums; }}
-    .price-new {{ font-size:2.35rem; font-weight:900; color:{NEON};
-                  text-shadow:0 0 28px rgba(52,208,122,.34);
-                  font-variant-numeric:tabular-nums; line-height:1; }}
-    .price-tag {{ font-size:.6rem; font-weight:900; letter-spacing:.2em;
-                  color:{NEON}; }}
-
-    /* ============ TRACKER ============ */
-    .trk-rail {{ height:10px; border-radius:999px; overflow:hidden;
-                 background:rgba(255,255,255,.05);
-                 border:1px solid rgba(212,175,55,.16); }}
-    .trk-fill {{ height:100%; border-radius:999px; background:{GOLD_CSS};
-                 background-size:220% 100%;
-                 box-shadow:0 0 18px rgba(212,175,55,.62); }}
-    @keyframes shimmer {{0%{{background-position:0 0}}100%{{background-position:220% 0}}}}
-    .num {{ color:{GOLD_SOFT}; font-weight:900;
-            font-variant-numeric:tabular-nums; }}
-
-    /* ============ TIER CARDS ============ */
+    /* ============ TIER CARDS (GOLD FIX) ============ */
     .tier-grid {{ display:flex; flex-wrap:wrap; gap:.75rem; margin-top:.9rem; }}
     .tier {{ position:relative; overflow:hidden;
              flex:1 1 200px; min-width:190px; max-width:100%;
              padding:1rem 1.15rem; border-radius:15px;
-             border:1px solid rgba(212,175,55,.34);
-             background:rgba(255,255,255,.03);
+             border:1px solid #D4AF37;
+             background:linear-gradient(135deg, rgba(212,175,55,0.1), rgba(0,0,0,0.8));
              box-shadow:inset 0 1px 0 rgba(255,255,255,.06); }}
-    .tier::before {{ content:""; position:absolute; top:0; left:0; right:0;
-                     height:3px;
-                     background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C); }}
-    /* The metal lives in the numeral, not in a flat fill — a solid gold panel
-       reads as dull yellow at small sizes, which is what the client saw. */
     .tier-price {{ font-size:1.8rem; font-weight:900; line-height:1.15;
                    font-variant-numeric:tabular-nums;
                    background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
@@ -1225,33 +927,97 @@ def inject_theme(intro: bool = False) -> None:
                    -webkit-text-fill-color:transparent;
                    filter:drop-shadow(0 2px 10px rgba(212,175,55,.35)); }}
     .tier-rows {{ font-size:.66rem; letter-spacing:.14em; text-transform:uppercase;
-                  color:rgba(236,231,218,.45); }}
-    /* Phones get one full-width card per line instead of three unreadable
-       slivers — flex-basis alone still lets them squeeze below legibility. */
+                  color:rgba(236,231,218,.8); }}
     @media (max-width:640px) {{
         .tier {{ flex:1 1 100%; min-width:0; padding:.85rem 1rem; }}
         .tier-price {{ font-size:1.55rem; }}
     }}
 
-    /* ============ SEAT MAP ============ */
-    /* Real st.button widgets, restyled. components.v1.html renders in a
-       sandboxed iframe with no channel back to Python, so an HTML/CSS-grid map
-       could be clicked but never report the click; the only workaround rewrites
-       window.parent.location, which forces a navigation and destroys
-       st.session_state — taking the wizard with it. Three states are carried by
-       Streamlit's own attributes (secondary / primary / disabled), so the whole
-       map needs four CSS rules rather than one per seat. */
+    /* ============ SEAT MAP (CSS GRID FORCE HACK) ============ */
+    /* Streamlit tries to stack buttons vertically. We completely override the parent block */
+    div[class*="st-key-seatrow_"] > div > div[data-testid="stVerticalBlock"],
+    div[class*="st-key-seatrow_"] [data-testid="stVerticalBlock"] {{
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }}
+    @media (max-width: 640px) {{
+        div[class*="st-key-seatrow_"] > div > div[data-testid="stVerticalBlock"],
+        div[class*="st-key-seatrow_"] [data-testid="stVerticalBlock"] {{
+            grid-template-columns: repeat(5, 1fr) !important; /* Force EXACTLY 5 columns on mobile */
+            gap: 6px !important;
+        }}
+    }}
+    div[class*="st-key-seat_"] button {{
+        width: 100% !important;
+        height: auto !important;
+        min-height: 52px !important;
+        padding: 5px 0 !important;
+        border-radius: 8px !important;
+        white-space: pre-wrap !important;
+        line-height: 1.3 !important;
+        border:1px solid rgba(212,175,55,.55) !important;
+        background-color:rgba(212,175,55,.07) !important;
+        color:#F1E4BC !important;
+        transition:transform .07s ease, box-shadow .18s ease, background-color .18s ease !important; 
+    }}
+    div[class*="st-key-seat_"] button p {{
+        font-size: 0.65rem !important;
+        font-weight: 800 !important;
+        white-space: pre-wrap !important;
+        margin: 0 !important;
+    }}
+    div[class*="st-key-seat_"] button:hover:not(:disabled) {{
+        background-color:rgba(212,175,55,.24) !important;
+        border-color:{GOLD} !important;
+        box-shadow:0 0 16px rgba(212,175,55,.6) !important;
+        transform:translateY(-2px); 
+    }}
+    div[class*="st-key-seat_"] button:disabled {{
+        border:1px solid rgba(255,255,255,.14) !important;
+        background-color:#1a1a1a !important;
+        color:rgba(255,255,255,.4) !important; 
+        opacity:1 !important;
+        cursor:not-allowed !important;
+        text-decoration:none !important; 
+    }}
+    div[class*="st-key-seat_"] button:disabled p {{
+        color:rgba(255,255,255,.4) !important; 
+        text-decoration:none !important;
+    }}
+    div[class*="st-key-seat_"] button[kind="primary"],
+    div[class*="st-key-seat_"] [data-testid="stBaseButton-primary"] {{
+        background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important;
+        background-color:{GOLD} !important; color:#12100C !important;
+        border:none !important;
+        box-shadow:0 0 22px rgba(212,175,55,.9) !important; 
+    }}
+    div[class*="st-key-seat_"] button[kind="primary"] p {{
+        color:#12100C !important; 
+    }}
+    @media (max-width: 640px) {{
+        div[class*="st-key-seat_"] button p {{
+            font-size: 0.55rem !important; /* Smaller text for mobile square */
+        }}
+        div[class*="st-key-seat_"] button {{
+            min-height: 48px !important;
+        }}
+    }}
+
     .screen {{ margin:.4rem 0 1.1rem; padding:.55rem 0; text-align:center;
                font-size:.6rem; font-weight:900; letter-spacing:.55em;
                color:#0D0B06; border-radius:0 0 90px 90px / 0 0 26px 26px;
                background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
                box-shadow:0 14px 44px rgba(212,175,55,.4); }}
-    .rowtag {{ font-size:.9rem; font-weight:900; color:{GOLD_SOFT};
-               letter-spacing:.06em; line-height:1; }}
-    .rowtag small {{ display:block; font-size:.5rem; letter-spacing:.16em;
-                     color:rgba(236,231,218,.38); font-weight:800; }}
+    .rowtag {{ display:flex; align-items:baseline; gap:.6rem;
+               margin:.9rem 0 .35rem; }}
+    .rowtag b {{ font-size:1rem; font-weight:900; color:{GOLD_SOFT};
+                 letter-spacing:.06em; }}
+    .rowtag span {{ font-size:.54rem; letter-spacing:.2em; font-weight:800;
+                    text-transform:uppercase; color:rgba(236,231,218,.4); }}
     .legend {{ display:flex; flex-wrap:wrap; gap:1.1rem; margin:.2rem 0 1rem;
-               font-size:.64rem; letter-spacing:.14em; text-transform:uppercase;
+               font-size:.62rem; letter-spacing:.13em; text-transform:uppercase;
                color:rgba(236,231,218,.5); }}
     .legend i {{ display:inline-block; width:15px; height:15px; border-radius:5px;
                  margin-right:.45rem; vertical-align:-3px; }}
@@ -1259,45 +1025,10 @@ def inject_theme(intro: bool = False) -> None:
                 background:rgba(212,175,55,.08); }}
     .lg-sel  {{ background:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C);
                 box-shadow:0 0 12px rgba(212,175,55,.7); }}
-    .lg-gone {{ border:1px solid rgba(255,255,255,.08);
-                background:rgba(255,255,255,.03); }}
+    .lg-gone {{ border:1px solid rgba(255,255,255,.16);
+                background:#1a1a1a; }}
 
-    div[class*="st-key-seat_"] button {{
-        min-height:36px !important; height:36px !important;
-        padding:0 !important; border-radius:8px !important;
-        font-size:.7rem !important; font-weight:800 !important;
-        letter-spacing:0 !important;
-        border:1px solid rgba(212,175,55,.55) !important;
-        background-color:rgba(212,175,55,.07) !important;
-        background-image:none !important;
-        color:#F1E4BC !important; box-shadow:none !important;
-        transition:transform .07s ease, box-shadow .18s ease,
-                   background-color .18s ease; }}
-    div[class*="st-key-seat_"] button:hover:not(:disabled) {{
-        background-color:rgba(212,175,55,.24) !important;
-        border-color:{GOLD} !important;
-        box-shadow:0 0 16px rgba(212,175,55,.6) !important;
-        transform:translateY(-1px); }}
-    div[class*="st-key-seat_"] button:disabled {{
-        border:1px solid rgba(255,255,255,.07) !important;
-        background-color:rgba(255,255,255,.028) !important;
-        color:rgba(236,231,218,.16) !important; opacity:1 !important;
-        cursor:not-allowed !important; }}
-    div[class*="st-key-seat_"] button[kind="primary"],
-    div[class*="st-key-seat_"] [data-testid="stBaseButton-primary"] {{
-        background-image:linear-gradient(135deg,#D4AF37,#FFF2CD,#AA771C) !important;
-        background-color:{GOLD} !important; color:#12100C !important;
-        border:none !important;
-        box-shadow:0 0 22px rgba(212,175,55,.85) !important; }}
-    @media (max-width:640px) {{
-        div[class*="st-key-seat_"] button {{
-            min-height:30px !important; height:30px !important;
-            font-size:.58rem !important; border-radius:6px !important; }}
-    }}
     /* ============ RECEIPT ============ */
-    /* Reads as a torn-off counterfoil: warm gradient, gold hairline, a notched
-       perforation down the right edge and tabular numerals so the amount lines
-       up like a printed receipt rather than a status div. */
     .receipt {{ position:relative; overflow:hidden; margin:.3rem 0 1.2rem;
                 padding:1.35rem 1.6rem; border-radius:18px;
                 background:linear-gradient(135deg, rgba(212,175,55,.16) 0%,
@@ -1308,10 +1039,6 @@ def inject_theme(intro: bool = False) -> None:
                            0 0 34px rgba(212,175,55,.12); }}
     .receipt::before {{ content:""; position:absolute; top:0; left:0; right:0;
                         height:2px; background:{GOLD_CSS}; opacity:.9; }}
-    .receipt::after {{ content:""; position:absolute; top:12%; bottom:12%;
-                       right:23%; width:1px;
-                       background:repeating-linear-gradient(to bottom,
-                           rgba(212,175,55,.75) 0 6px, transparent 6px 13px); }}
     .r-grid {{ display:flex; flex-wrap:wrap; gap:1.9rem; align-items:flex-end; }}
     .r-cell {{ min-width:96px; }}
     .r-key {{ display:block; font-size:.56rem; font-weight:900;
@@ -1330,8 +1057,10 @@ def inject_theme(intro: bool = False) -> None:
     .r-note {{ font-size:.68rem; letter-spacing:.1em; margin-top:.9rem;
                color:rgba(236,231,218,.42); }}
 
-    /* ============ STEPPER ============ */
-    .stepper {{ display:flex; align-items:center; gap:.55rem; margin:.2rem 0 1.1rem; }}
+    /* ============ MOBILE OPTIMIZED STEPPER ============ */
+    .stepper {{ display:flex; align-items:center; gap:.5rem;
+                margin:.2rem 0 1.1rem; flex-wrap:nowrap !important;
+                white-space:nowrap; overflow:hidden; justify-content:space-between; }}
     .stp {{ display:flex; align-items:center; gap:.5rem; }}
     .stp-dot {{ width:30px; height:30px; border-radius:50%; display:flex;
                 align-items:center; justify-content:center; font-size:.76rem;
@@ -1339,7 +1068,8 @@ def inject_theme(intro: bool = False) -> None:
                 color:rgba(236,231,218,.45); background:rgba(255,255,255,.03); }}
     .stp-txt {{ font-size:.6rem; font-weight:800; letter-spacing:.2em;
                 text-transform:uppercase; color:rgba(236,231,218,.4); }}
-    .stp-bar {{ flex:1; height:1px; background:rgba(212,175,55,.22); }}
+    .stp-bar {{ flex:1 1 10px; min-width:8px; height:1px;
+                background:rgba(212,175,55,.22); }}
     .stp.on .stp-dot {{ background:{GOLD_CSS}; color:#12100C;
                         border-color:transparent;
                         box-shadow:0 0 18px rgba(212,175,55,.6); }}
@@ -1347,26 +1077,15 @@ def inject_theme(intro: bool = False) -> None:
     .stp.done .stp-dot {{ border-color:{GOLD}; color:{GOLD_SOFT};
                           background:rgba(212,175,55,.12); }}
     .stp.done .stp-txt {{ color:rgba(232,204,107,.7); }}
-    @media (max-width:640px) {{ .stp-txt {{ display:none; }}
-                                .receipt::after {{ display:none; }}
-                                .r-grid {{ gap:1.2rem; }} }}
-    .notice {{ border-radius:18px; padding:1.5rem 1.7rem; margin:.4rem 0 1rem;
-               border:1px solid rgba(240,169,59,.55);
-               background:linear-gradient(160deg, rgba(240,169,59,.16),
-                          rgba(240,169,59,.04));
-               box-shadow:0 0 40px rgba(240,169,59,.18); }}
-    .notice h3 {{ font-size:1.4rem; font-weight:900; color:{AMBER};
-                  margin:.7rem 0 .5rem; letter-spacing:.01em; }}
-    .notice p {{ font-size:.95rem; line-height:1.7;
-                 color:rgba(245,238,224,.86); margin:0; }}
+    @media (max-width:640px) {{
+        .stepper {{ gap:.2rem; }}
+        .stp {{ gap:.2rem; flex:0 0 auto; }}
+        .stp-dot {{ width:24px; height:24px; font-size:.6rem; }}
+        .stp-txt {{ font-size:.45rem; letter-spacing:.05em; }}
+        .r-grid {{ gap:1.2rem; }}
+    }}
 
-    /* ============ FORM CONTROLS ============ */
-    /* Two deliberate lanes, because the brief pulls in two directions:
-         SELECTBOXES (step 2, choosing a seat)  -> GOLD. It is a brand moment.
-         TEXT INPUTS (step 3, entering data)    -> NEON. It is an action.
-       Labels are gold/white in BOTH lanes — neon-on-neon labels are what made
-       the old form read as a terminal rather than a ticketing portal. */
-
+    /* ============ TRUE NEON FORM CONTROLS ============ */
     .stTextInput label, .stTextInput label p,
     .stNumberInput label, .stNumberInput label p,
     .stSelectbox label, .stSelectbox label p {{
@@ -1376,39 +1095,27 @@ def inject_theme(intro: bool = False) -> None:
         margin-bottom:.55rem !important;
         text-shadow:0 0 16px rgba(212,175,55,.45) !important; }}
 
-    /* ---------- NEON lane: text + number inputs ---------- */
-    /* Deep dark fill so the glow reads as emitted light rather than a tinted
-       panel — a translucent green box just looks washed out. The inset shadow
-       is what makes the border feel lit from inside instead of outlined. */
     .stTextInput > div > div,
     .stTextInput [data-baseweb="input"],
     .stTextInput [data-baseweb="base-input"],
     [data-testid="stTextInputRootElement"],
     .stNumberInput [data-baseweb="input"],
     [data-testid="stNumberInputContainer"] {{
-        background-color:#050D07 !important;
+        background-color:#051408 !important;
         background-image:none !important;
         border:2px solid #39FF14 !important;
         border-radius:14px !important;
-        box-shadow:0 0 10px rgba(57,255,20,0.5),
-                   inset 0 0 5px rgba(57,255,20,0.3) !important;
+        box-shadow:0 0 15px rgba(57,255,20,0.5), inset 0 0 8px rgba(57,255,20,0.3) !important;
         transition:box-shadow .22s ease, background-color .22s ease,
                    border-color .22s ease; }}
-    .stTextInput > div > div:hover,
-    .stTextInput [data-baseweb="input"]:hover,
-    .stNumberInput [data-baseweb="input"]:hover {{
-        background-color:#071609 !important;
-        box-shadow:0 0 18px rgba(57,255,20,0.68),
-                   inset 0 0 9px rgba(57,255,20,0.38) !important; }}
+    
     .stTextInput > div > div:focus-within,
     .stTextInput [data-baseweb="input"]:focus-within,
     [data-testid="stTextInputRootElement"]:focus-within,
     .stNumberInput [data-baseweb="input"]:focus-within {{
-        background-color:#08210C !important;
+        background-color:#0A240F !important;
         border-color:#7CFF5A !important;
-        box-shadow:0 0 30px rgba(57,255,20,0.9),
-                   0 0 62px rgba(57,255,20,0.42),
-                   inset 0 0 14px rgba(57,255,20,0.5) !important; }}
+        box-shadow:0 0 25px rgba(57,255,20,0.8), inset 0 0 12px rgba(57,255,20,0.5) !important; }}
 
     .stTextInput input, .stTextInput input[type="text"],
     .stTextInput input[type="password"], .stNumberInput input {{
@@ -1425,50 +1132,8 @@ def inject_theme(intro: bool = False) -> None:
         font-size:.98rem !important; letter-spacing:.04em !important;
         text-shadow:none !important;
         -webkit-text-fill-color:rgba(190,255,175,.4) !important; }}
-    .stNumberInput button {{
-        background:rgba(57,255,20,.14) !important;
-        border:1px solid rgba(57,255,20,.5) !important;
-        color:#D6FFCB !important; }}
 
-    /* ---------- GOLD lane: seat selection ---------- */
-    .stSelectbox [data-baseweb="select"] > div,
-    .stSelectbox [data-baseweb="select"] div[role="button"] {{
-        background-color:rgba(212,175,55,0.08) !important;
-        background-image:linear-gradient(180deg, rgba(255,255,255,.05),
-                                         rgba(255,255,255,.01)) !important;
-        border:2px solid rgba(212,175,55,.62) !important;
-        border-radius:14px !important;
-        box-shadow:0 0 15px rgba(212,175,55,.28) !important;
-        min-height:72px !important; padding:0 1.25rem !important;
-        color:#FFF4D6 !important; font-weight:800 !important;
-        font-size:1.18rem !important; letter-spacing:.02em !important;
-        transition:box-shadow .22s ease, border-color .22s ease,
-                   background-color .22s ease; }}
-    .stSelectbox [data-baseweb="select"] > div:hover {{
-        border-color:{GOLD} !important;
-        box-shadow:0 0 22px rgba(212,175,55,.5) !important; }}
-    .stSelectbox [data-baseweb="select"] > div:focus-within {{
-        border-color:#FCF6BA !important;
-        background-color:rgba(212,175,55,.14) !important;
-        box-shadow:0 0 28px rgba(212,175,55,.78) !important; }}
-    .stSelectbox [data-baseweb="select"] svg {{ fill:{GOLD_SOFT} !important; }}
-    [data-baseweb="popover"] [role="listbox"] {{
-        background:#12100A !important;
-        border:1px solid rgba(212,175,55,.5) !important;
-        border-radius:14px !important;
-        box-shadow:0 20px 50px rgba(0,0,0,.7) !important; }}
-    [data-baseweb="popover"] [role="option"] {{
-        color:#F3E9CE !important; font-size:1.02rem !important;
-        font-weight:600 !important; }}
-    [data-baseweb="popover"] [role="option"]:hover,
-    [data-baseweb="popover"] [aria-selected="true"] {{
-        background:rgba(212,175,55,.18) !important; color:#FFF8E4 !important; }}
-
-    /* ============ BUTTONS ============ */
-    /* Streamlit renames its button hooks between releases and its default
-       primary is #FF4B4B, so every generation of selector is covered and
-       background-color is nuked explicitly — the `background` shorthand alone
-       loses to a later background-color rule in some builds. */
+    /* ============ BUTTONS & CTA ============ */
     .stButton > button, .stButton button,
     .stFormSubmitButton > button, .stFormSubmitButton button,
     .stDownloadButton > button, .stDownloadButton button,
@@ -1480,8 +1145,7 @@ def inject_theme(intro: bool = False) -> None:
         color:#F2EBD9 !important; font-weight:800 !important;
         letter-spacing:.1em !important; min-height:54px !important;
         box-shadow:none !important;
-        transition:transform .1s ease, box-shadow .24s ease,
-                   background-color .24s ease; }}
+        transition:transform .1s ease, box-shadow .24s ease, background-color .24s ease; }}
 
     .stFormSubmitButton > button, .stFormSubmitButton button,
     .stFormSubmitButton button[kind="primaryFormSubmit"],
@@ -1493,127 +1157,78 @@ def inject_theme(intro: bool = False) -> None:
         background-color:{GOLD} !important;
         background-image:{GOLD_CSS} !important; background-size:200% 200%;
         position:relative; overflow:hidden;
-        animation:ctapulse 2.6s ease-in-out infinite,
-                  ctashift 7s ease-in-out infinite; }}
+        animation:ctapulse 2.6s ease-in-out infinite, ctashift 7s ease-in-out infinite; }}
     .stFormSubmitButton button * {{ color:#12100C !important;
         font-weight:900 !important; letter-spacing:.22em !important; }}
-    @keyframes ctashift {{ 0%,100%{{background-position:0% 50%}}
-                           50%{{background-position:100% 50%}} }}
-    @keyframes ctapulse {{
-        0%,100% {{ box-shadow:0 16px 40px -10px rgba(212,175,55,.6),
-                              0 0 0 0 rgba(212,175,55,.44),
-                              inset 0 1px 0 rgba(255,255,255,.7); }}
-        50%     {{ box-shadow:0 20px 54px -8px rgba(212,175,55,.85),
-                              0 0 0 18px rgba(212,175,55,0),
-                              inset 0 1px 0 rgba(255,255,255,.7); }} }}
-    .stFormSubmitButton button::after {{
-        content:""; position:absolute; top:0; left:-60%; width:36%; height:100%;
-        background:linear-gradient(105deg, transparent,
-                                   rgba(255,255,255,.6), transparent);
-        transform:skewX(-18deg); animation:sheen 4.4s ease-in-out infinite; }}
-    @keyframes sheen {{ 0%{{left:-60%}} 55%{{left:132%}} 100%{{left:132%}} }}
-    .stFormSubmitButton button:hover {{ transform:translateY(-2px);
-        box-shadow:0 26px 62px -10px rgba(212,175,55,.95) !important; }}
-    .stFormSubmitButton button:active {{ transform:translateY(0); }}
-
+    
     .stDownloadButton > button, .stDownloadButton button {{
         width:100% !important; min-height:74px !important;
         font-size:1rem !important; font-weight:900 !important;
         letter-spacing:.18em !important; border-radius:18px !important;
         border:1px solid rgba(212,175,55,.5) !important; color:#F7F0DE !important;
         background-color:rgba(212,175,55,.12) !important;
-        background-image:linear-gradient(135deg, rgba(212,175,55,.2),
-                                         rgba(212,175,55,.04)) !important; }}
-    .stDownloadButton button:hover {{ background-image:{GOLD_CSS} !important;
-        color:#12100C !important; border-color:transparent !important;
-        box-shadow:0 20px 50px -12px rgba(212,175,55,.85) !important; }}
-    .stDownloadButton button:hover * {{ color:#12100C !important; }}
+        background-image:linear-gradient(135deg, rgba(212,175,55,.2), rgba(212,175,55,.04)) !important; }}
+    
+    .st-key-start_booking button {{
+        min-height:92px !important; width:100% !important;
+        font-size:1.2rem !important; font-weight:900 !important;
+        letter-spacing:.24em !important; border-radius:22px !important;
+        border:none !important; color:#08130C !important;
+        background-color:{GOLD} !important;
+        background-image:linear-gradient(120deg,#AA771C 0%,#D4AF37 22%,#FFF2CD 46%,#34D07A 74%,#0FA958 100%) !important;
+        background-size:220% 220% !important;
+        animation:startPulse 2.4s ease-in-out infinite, startShift 7s ease-in-out infinite !important; }}
+    .st-key-start_booking button p {{ color:#08130C !important;
+        font-weight:900 !important; letter-spacing:.24em !important; }}
+    
+    @keyframes startShift {{ 0%,100%{{background-position:0% 50%}} 50%{{background-position:100% 50%}} }}
+    @keyframes startPulse {{
+        0%,100% {{ box-shadow:0 20px 52px -12px rgba(212,175,55,.75), 0 10px 40px -10px rgba(52,208,122,.55), inset 0 1px 0 rgba(255,255,255,.7); }}
+        50%     {{ box-shadow:0 26px 68px -10px rgba(212,175,55,.95), 0 16px 54px -8px rgba(52,208,122,.8), inset 0 1px 0 rgba(255,255,255,.7); }} }}
+    .st-key-start_booking button:hover {{ transform:translateY(-3px); }}
     .st-key-reset_db button {{ background-color:#C7222A !important;
         background-image:linear-gradient(135deg,#F0616B,#B91C1C) !important;
         color:#FFF !important; border:none !important; }}
 
-    /* ============ CHROME ============ */
-    [data-baseweb="tab-list"] {{ gap:.45rem;
-        border-bottom:1px solid rgba(212,175,55,.14) !important; }}
-    [data-baseweb="tab"] {{ font-weight:900 !important;
-        letter-spacing:.16em !important; font-size:.72rem !important; }}
+    [data-baseweb="tab-list"] {{ gap:.45rem; border-bottom:1px solid rgba(212,175,55,.14) !important; }}
+    [data-baseweb="tab"] {{ font-weight:900 !important; letter-spacing:.16em !important; font-size:.72rem !important; }}
     [data-baseweb="tab-highlight"] {{ background:{GOLD} !important; height:2px; }}
-    [data-testid="stImage"] img {{ border-radius:18px;
-        box-shadow:0 30px 80px rgba(0,0,0,.75), 0 0 46px rgba(212,175,55,.14); }}
-    [data-testid="stMetricValue"] {{ color:{GOLD_SOFT} !important;
-        font-weight:900 !important; font-variant-numeric:tabular-nums; }}
-    [data-testid="stMetricLabel"] {{ letter-spacing:.18em !important;
-        text-transform:uppercase !important; font-size:.6rem !important; }}
-    [data-testid="stDataFrame"] {{ border:1px solid rgba(212,175,55,.22);
-        border-radius:14px; overflow:hidden; }}
-    hr {{ border-color:rgba(212,175,55,.14) !important; }}
-
-    /* ============ CINEMATIC INTRO ============ */
-    /* Simple two-stop keyframes. The hold is expressed as an animation-DELAY
-       rather than as percentage stops inside the keyframe — same result, far
-       less for the compositor to interpolate, and no mid-timeline jumps. */
-    @keyframes vipVeil {{ from {{ opacity:1; }}
-                          to   {{ opacity:0; visibility:hidden; }} }}
-    @keyframes vipMarkIn {{ from {{ opacity:0; transform:translateY(14px) scale(.972); }}
-                            to   {{ opacity:1; transform:none; }} }}
-    @keyframes vipRuleIn {{ from {{ width:0; opacity:0; }}
-                            to   {{ width:210px; opacity:1; }} }}
-    @keyframes vipRise {{ from {{ opacity:0; transform:translateY(16px); }}
-                          to   {{ opacity:1; transform:none; }} }}
+    [data-testid="stImage"] img {{ border-radius:18px; box-shadow:0 30px 80px rgba(0,0,0,.75), 0 0 46px rgba(212,175,55,.14); }}
+    [data-testid="stMetricValue"] {{ color:{GOLD_SOFT} !important; font-weight:900 !important; font-variant-numeric:tabular-nums; }}
+    [data-testid="stMetricLabel"] {{ letter-spacing:.18em !important; text-transform:uppercase !important; font-size:.6rem !important; }}
+    
+    @keyframes vipVeil {{ from {{ opacity:1; }} to   {{ opacity:0; visibility:hidden; }} }}
+    @keyframes vipMarkIn {{ from {{ opacity:0; transform:translateY(14px) scale(.972); }} to   {{ opacity:1; transform:none; }} }}
+    @keyframes vipRuleIn {{ from {{ width:0; opacity:0; }} to   {{ width:210px; opacity:1; }} }}
+    @keyframes vipRise {{ from {{ opacity:0; transform:translateY(16px); }} to   {{ opacity:1; transform:none; }} }}
     @keyframes vipBreathe {{ 0%,100%{{opacity:.5}} 50%{{opacity:1}} }}
 
-    /* THE GLITCH FIX.
-       A `position:fixed` element is trapped by ANY ancestor carrying a
-       transform, filter or backdrop-filter — that ancestor becomes its
-       containing block. The veil is injected inside a Streamlit element
-       container, and the reveal animation puts translateY() on those very
-       containers, so the veil was being dragged around mid-fade and could sit
-       over live controls. Its own container is therefore pinned static. */
     [data-testid="stElementContainer"]:has(.vip-veil),
     .stElementContainer:has(.vip-veil) {{
-        animation:none !important; transform:none !important;
-        filter:none !important; opacity:1 !important;
-        position:static !important; contain:none !important; }}
-
-    /* pointer-events is none on the veil AND every descendant, from the first
-       frame — not switched at the end of the animation. An opaque full-screen
-       layer that failed to fade would otherwise lock every click in the app. */
+        animation:none !important; transform:none !important; filter:none !important; opacity:1 !important; position:static !important; contain:none !important; }}
     .vip-veil, .vip-veil * {{ pointer-events:none !important; }}
     .vip-veil {{
         position:fixed !important; inset:0; z-index:2147483000;
         display:flex; flex-direction:column; align-items:center;
         justify-content:center; will-change:opacity;
-        background:radial-gradient(1000px 640px at 50% 44%,
-                   #14161D 0%, #05060B 62%, #000 100%);
+        background:radial-gradient(1000px 640px at 50% 44%, #14161D 0%, #05060B 62%, #000 100%);
         animation:vipVeil {fade:.2f}s cubic-bezier(.4,0,.2,1) {hold:.2f}s forwards; }}
     .vip-veil__mark {{
-        font-family:'Playfair Display', Georgia, serif;
-        font-size:clamp(1.5rem, 6vw, 3rem); font-weight:900;
+        font-family:'Playfair Display', Georgia, serif; font-size:clamp(1.5rem, 6vw, 3rem); font-weight:900;
         letter-spacing:.16em; text-align:center; padding:0 1.4rem;
-        background:{GOLD_CSS};
-        -webkit-background-clip:text; background-clip:text;
-        -webkit-text-fill-color:transparent;
-        filter:drop-shadow(0 0 30px rgba(212,175,55,.6));
-        animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) both; }}
+        background:{GOLD_CSS}; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+        filter:drop-shadow(0 0 30px rgba(212,175,55,.6)); animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) both; }}
     .vip-veil__rule {{ height:1px; margin:1.25rem 0 .95rem;
-        background:linear-gradient(90deg,transparent,{GOLD},transparent);
-        animation:vipRuleIn .6s cubic-bezier(.22,1,.36,1) .08s both; }}
+        background:linear-gradient(90deg,transparent,{GOLD},transparent); animation:vipRuleIn .6s cubic-bezier(.22,1,.36,1) .08s both; }}
     .vip-veil__sub {{
-        font-family:Inter, system-ui, sans-serif; font-size:.58rem;
-        font-weight:800; letter-spacing:.44em; color:rgba(232,204,107,.72);
-        text-align:center; text-transform:uppercase;
-        animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) .12s both; }}
+        font-family:Inter, system-ui, sans-serif; font-size:.58rem; font-weight:800; letter-spacing:.44em; color:rgba(232,204,107,.72);
+        text-align:center; text-transform:uppercase; animation:vipMarkIn .5s cubic-bezier(.22,1,.36,1) .12s both; }}
     {reveal}
-    /* Accessibility + failsafe. If motion is suppressed nothing may be left at
-       opacity:0 — that would render the app permanently blank. */
     @media (prefers-reduced-motion: reduce) {{
         .vip-veil {{ display:none !important; }}
-        [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],
-        [data-testid="stVerticalBlock"] > .stElementContainer,
-        .glass, .glass--hero, .glass--hero::before, .pill, .trk-live,
-        .stFormSubmitButton button, .stFormSubmitButton button::after {{
-            animation:none !important; opacity:1 !important;
-            transform:none !important; }} }}
+        [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"], [data-testid="stVerticalBlock"] > .stElementContainer,
+        .glass, .glass--hero, .glass--hero::before, .pill, .trk-live, .stFormSubmitButton button, .stFormSubmitButton button::after {{
+            animation:none !important; opacity:1 !important; transform:none !important; }} }}
     @media (max-width: 640px) {{
         .block-container {{ padding-left:.9rem; padding-right:.9rem; }}
         .glass {{ padding:1.25rem 1.1rem; border-radius:18px; }}
@@ -1622,9 +1237,7 @@ def inject_theme(intro: bool = False) -> None:
     </style>
     """)
 
-
 def splash_overlay() -> None:
-    """Cinematic veil. Injected ONCE per session — see inject_theme()."""
     _html(f"""
     <div class="vip-veil">
       <div class="vip-veil__mark">{EVENT_NAME.upper()}</div>
@@ -1633,7 +1246,6 @@ def splash_overlay() -> None:
     </div>
     """)
 
-
 def banner(path: Path, fallback: str) -> None:
     if path.exists():
         st.image(str(path), width="stretch")
@@ -1641,9 +1253,7 @@ def banner(path: Path, fallback: str) -> None:
         _html(f"<div class='glass' style='text-align:center;letter-spacing:.3em;"
               f"font-weight:900;color:{GOLD_SOFT};'>{fallback}</div>")
 
-
 def hero() -> None:
-    # A real anchor, target=_blank, rel=noopener — it must actually open Maps.
     maps_chip = (
         f'<a class="chip chip--map" href="{MAPS_URL}" target="_blank" '
         f'rel="noopener noreferrer"><b>Map</b><span>Directions &#8599;</span></a>'
@@ -1662,7 +1272,6 @@ def hero() -> None:
       </div>
     </div>
     """)
-
 
 def tier_banner(prices: dict[str, int]) -> None:
     rows = {
@@ -1683,7 +1292,6 @@ def tier_banner(prices: dict[str, int]) -> None:
     </div>
     """)
 
-
 def tracker(sold: int, pending: int, sellable: int) -> None:
     done = sold + pending
     pct = (done / sellable * 100) if sellable else 0.0
@@ -1692,8 +1300,7 @@ def tracker(sold: int, pending: int, sellable: int) -> None:
     <style>
     @keyframes fillbar {{ from {{width:0%}} to {{width:{sold_pct:.2f}%}} }}
     @keyframes fillbar2 {{ from {{width:0%}} to {{width:{pct:.2f}%}} }}
-    .trk-live {{ animation:fillbar 1.1s cubic-bezier(.22,1,.36,1) both,
-                            shimmer 2.8s linear infinite; }}
+    .trk-live {{ animation:fillbar 1.1s cubic-bezier(.22,1,.36,1) both, shimmer 2.8s linear infinite; }}
     .trk-pend {{ animation:fillbar2 1.1s cubic-bezier(.22,1,.36,1) both; }}
     </style>
     <div class="glass" style="padding:1.3rem 1.6rem;">
@@ -1717,33 +1324,15 @@ def tracker(sold: int, pending: int, sellable: int) -> None:
     </div>
     """)
 
-
 # =============================================================================
 # 10. AUTO-DOWNLOAD
 # =============================================================================
 
-
 def auto_download(jpeg: bytes, filename: str, fire_key: str) -> None:
-    """
-    Best-effort automatic save. Fired ONCE per issued pass — an ungated version
-    would re-trigger on every Streamlit rerun and spam the user's downloads.
-
-    Honest about the limits. Programmatic downloads are actively restricted:
-      * st.markdown strips <script>, so this MUST go through components.html,
-        which renders in a sandboxed iframe;
-      * Chrome blocks downloads from sandboxed iframes lacking allow-downloads,
-        so the script first tries window.parent.document to step outside it;
-      * browsers require a recent user gesture, and the form submit's gesture
-        has usually expired by the time this component mounts;
-      * iOS Safari largely ignores the `download` attribute and will open the
-        image in a tab instead.
-    Net effect: reliable on desktop Chrome/Edge/Firefox, unreliable on mobile
-    Safari. The inline image and the download button below it are therefore the
-    real delivery path on phones, not a fallback.
-    """
-    if st.session_state.get("_auto_dl") == fire_key:
+    fired: set[str] = st.session_state.setdefault("_auto_dl", set())
+    if fire_key in fired:
         return
-    st.session_state["_auto_dl"] = fire_key
+    fired.add(fire_key)
     payload = base64.b64encode(jpeg).decode("ascii")
     components_html(
         f"""<script>
@@ -1773,14 +1362,11 @@ def auto_download(jpeg: bytes, filename: str, fire_key: str) -> None:
         height=0,
     )
 
-
-
 # =============================================================================
 # 11. TAB 1 — BOOK TICKET
 # =============================================================================
 
 NAME_MIN: Final[int] = 3
-
 
 def validate_booking(name: str, phone: str, utr: str) -> list[str]:
     errors: list[str] = []
@@ -1792,16 +1378,11 @@ def validate_booking(name: str, phone: str, utr: str) -> list[str]:
         errors.append("UTR / Transaction ID must be exactly 12 digits.")
     return errors
 
-
 BOOK_STEP: Final[str] = "_book_step"
-SEL_ROW: Final[str] = "_sel_row_letter"
-SEL_SEAT: Final[str] = "_sel_seat_id"
-
 
 def goto_step(step: int) -> None:
     st.session_state[BOOK_STEP] = step
     st.rerun()
-
 
 def render_stepper(active: int) -> None:
     labels = ("Choose", "Seat", "Pay")
@@ -1815,7 +1396,6 @@ def render_stepper(active: int) -> None:
         if index < len(labels):
             parts.append('<div class="stp-bar"></div>')
     _html(f'<div class="stepper">{"".join(parts)}</div>')
-
 
 def render_receipt(seat_id: str, amount: int, locked: bool) -> None:
     tier = seat_tier(seat_id)
@@ -1836,14 +1416,9 @@ def render_receipt(seat_id: str, amount: int, locked: bool) -> None:
     </div>
     """)
 
-
-# --- STEP 1 -------------------------------------------------------------------
-
+# --- STEP 1 ---
 
 def step_choose(df: pd.DataFrame, prices: dict[str, int]) -> None:
-    # The live tracker is deliberately NOT here — sell-through numbers are
-    # organiser information, and a public "142 of 157 gone" either panics or
-    # deflates a buyer. It lives in Admin.
     tier_banner(prices)
 
     if not available_seats(df):
@@ -1868,18 +1443,9 @@ def step_choose(df: pd.DataFrame, prices: dict[str, int]) -> None:
                  key="start_booking"):
         goto_step(2)
 
-
-# --- STEP 2 -------------------------------------------------------------------
-
+# --- STEP 2 ---
 
 def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> str | None:
-    """
-    Clickable auditorium. Returns a seat id if one was tapped this run.
-
-    Ten seats per line, so a 20-seat row occupies two lines. Twenty across would
-    give roughly 16px per target on a 380px phone — under the ~44px touch
-    guidance and unusable. Ten keeps them tappable.
-    """
     statuses = dict(zip(df["seat_id"], df["status"]))
     selected = st.session_state.get("_locked_seat")
     clicked: str | None = None
@@ -1895,35 +1461,30 @@ def render_seat_map(df: pd.DataFrame, prices: dict[str, int]) -> str | None:
 
     for row_letter, cap in ROW_CAPACITIES.items():
         tier = ROW_TIER[row_letter]
-        for offset in range(0, cap, 10):
-            numbers = list(range(offset + 1, min(offset + 11, cap + 1)))
-            columns = st.columns([0.62] + [1] * 10, gap="small",
-                                 vertical_alignment="center")
-            if offset == 0:
-                with columns[0]:
-                    _html(f'<div class="rowtag">{row_letter}'
-                          f'<small>{tier}</small></div>')
-            for slot, number in enumerate(numbers, start=1):
+        price = prices[tier]
+        open_count = sum(
+            1 for n in range(1, cap + 1)
+            if statuses.get(f"{row_letter}{n}", AVAILABLE) == AVAILABLE)
+        _html(f'<div class="rowtag"><b>ROW {row_letter}</b>'
+              f'<span>{tier} &middot; &#8377;{price:,} &middot; '
+              f'{open_count} open</span></div>')
+
+        with st.container(key=f"seatrow_{row_letter}"):
+            for number in range(1, cap + 1):
                 seat = f"{row_letter}{number}"
                 taken = statuses.get(seat, AVAILABLE) != AVAILABLE
                 is_mine = seat == selected
-                pressed = columns[slot].button(
-                    str(number),
+                
+                label = f"{seat}\n₹{price:,}"
+                if st.button(
+                    label,
                     key=f"seat_{seat}",
                     disabled=taken,
                     type="primary" if is_mine else "secondary",
-                    width="stretch",
-                    help=(f"{seat} · sold" if taken
-                          else f"{seat} · {tier} · ₹{prices[tier]:,}"),
-                )
-                if pressed:
+                ):
                     clicked = seat
-            # keep short lines aligned to the same 10-column rhythm
-            for slot in range(len(numbers) + 1, 11):
-                columns[slot].empty()
 
     return clicked
-
 
 def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if not available_seats(df):
@@ -1934,8 +1495,8 @@ def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     <div class="glass" style="padding-bottom:.8rem;">
       <span class="pill">CHOOSE YOUR SEAT</span>
       <div class="micro" style="margin-top:1.05rem;">
-        Tap any available seat. Greyed seats are already taken.
-        Price is set by the row.
+        Tap any available seat. Crossed-out seats are already taken.
+        The price on each seat is set by its row.
       </div>
     </div>
     """)
@@ -1949,9 +1510,7 @@ def step_seat(df: pd.DataFrame, prices: dict[str, int]) -> None:
     if st.button("Back", width="content", key="back_to_1"):
         goto_step(1)
 
-
-# --- STEP 3 -------------------------------------------------------------------
-
+# --- STEP 3 ---
 
 def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
     seat_id = st.session_state.get("_locked_seat")
@@ -1959,8 +1518,6 @@ def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
         goto_step(2)
         return
 
-    # The seat is held in this session, not in the sheet. Re-checking here turns
-    # "your payment failed for no reason" into a clear, early message.
     current = df[df["seat_id"] == seat_id]
     if current.empty or current.iloc[0]["status"] != AVAILABLE:
         st.error(f"Seat {seat_id} was taken while you were deciding. "
@@ -2041,10 +1598,13 @@ def step_pay(df: pd.DataFrame, prices: dict[str, int]) -> None:
         return
 
     st.session_state["_booked_phone"] = phone
-    st.session_state["_booked_seat"] = str(row["seat_id"]) if row is not None else seat_id
+    booked = st.session_state.setdefault("_booked_seats", [])
+    confirmed = str(row["seat_id"]) if row is not None else seat_id
+    if confirmed not in booked:
+        booked.append(confirmed)
+    st.session_state.pop("_locked_seat", None)
     st.balloons()
     st.rerun()
-
 
 def render_booking(df: pd.DataFrame, prices: dict[str, int]) -> None:
     hero()
@@ -2057,40 +1617,53 @@ def render_booking(df: pd.DataFrame, prices: dict[str, int]) -> None:
     else:
         step_choose(df, prices)
 
-
 def render_pending_notice() -> None:
-    seat = st.session_state.get("_booked_seat", "")
+    seats = st.session_state.get("_booked_seats", [])
     phone = st.session_state.get("_booked_phone", "")
+    total = sum(seat_price(s) for s in seats)
+    chips = "".join(
+        f'<span class="chip"><b>{s}</b><span>{seat_tier(s)} &middot; '
+        f'&#8377;{seat_price(s):,}</span></span>' for s in seats)
+    plural = "seat" if len(seats) == 1 else "seats"
+
     _html(f"""
     <div class="notice">
       <span class="pill" style="background:linear-gradient(135deg,#FFD9A0,{AMBER});">
         PAYMENT UNDER VERIFICATION</span>
-      <h3>Thank you — seat {seat} is held in your name.</h3>
+      <h3>{len(seats)} {plural} held &middot; &#8377;{total:,} total</h3>
+      <div class="chips" style="margin:.2rem 0 .9rem;">{chips}</div>
       <p>
-        Your payment is being verified manually. This takes a maximum of
+        Each transaction is being verified manually — a maximum of
         <b>{VERIFY_HOURS} hours</b>.<br><br>
-        <b>No ticket is issued yet.</b> Once your transaction is confirmed,
-        open the <b>DOWNLOAD TICKET</b> tab, enter
-        <b style="color:{LIME_TEXT};">{phone}</b>, and your pass will be
-        generated and downloaded instantly.<br><br>
-        Keep your UPI receipt until you are inside the venue.
+        <b>No tickets are issued yet.</b> Once confirmed, open the
+        <b>DOWNLOAD TICKET</b> tab and enter
+        <b style="color:#D6FFCB;">{phone}</b> — every pass booked on that number
+        appears there together.<br><br>
+        Keep your UPI receipts until you are inside the venue.
       </p>
     </div>
     """)
-    if st.button("Book another seat (different phone number)", width="stretch"):
-        for key in ("_booked_phone", "_booked_seat", "_locked_seat",
-                    BOOK_STEP, SEL_ROW, SEL_SEAT):
-            st.session_state.pop(key, None)
-        st.rerun()
 
+    add, done = st.columns([2, 1], gap="small")
+    with add:
+        if st.button("BOOK ANOTHER SEAT", type="primary", width="stretch",
+                     key="book_more"):
+            st.session_state.pop("_locked_seat", None)
+            st.session_state[BOOK_STEP] = 2
+            st.rerun()
+    with done:
+        if st.button("Done", width="stretch", key="booking_done"):
+            for key in ("_booked_phone", "_booked_seats", "_locked_seat",
+                        BOOK_STEP):
+                st.session_state.pop(key, None)
+            st.rerun()
 
 # =============================================================================
 # 12. TAB 2 — DOWNLOAD TICKET
 # =============================================================================
 
-
-def issue_pass(row: pd.Series, prices: dict[str, int]) -> None:
-    """Generate, auto-save and display the JPEG for a verified booking."""
+def issue_pass(row: pd.Series, prices: dict[str, int],
+               auto_save: bool = True) -> None:
     enriched = row.copy()
     enriched["_price"] = prices[seat_tier(str(row["seat_id"]))]
     store: dict[str, bytes] = st.session_state.setdefault("tickets", {})
@@ -2101,7 +1674,8 @@ def issue_pass(row: pd.Series, prices: dict[str, int]) -> None:
     jpeg = store[seat]
     filename = f"VIP_Pass_{seat}.jpeg"
 
-    auto_download(jpeg, filename, fire_key=seat)
+    if auto_save:
+        auto_download(jpeg, filename, fire_key=seat)
 
     _html(f"""
     <div class="glass glass--hero" style="text-align:center;">
@@ -2114,12 +1688,13 @@ def issue_pass(row: pd.Series, prices: dict[str, int]) -> None:
     </div>
     """)
     st.image(jpeg, width="stretch")
-    _html("""
-    <div class="micro" style="text-align:center;margin:-.1rem 0 1rem;">
-      Saving automatically. If nothing downloaded, long-press the pass to save
-      it to your gallery, or use the button below.
-    </div>
-    """)
+    hint = ("Saving automatically. If nothing downloaded, long-press the pass "
+            "to save it, or use the button below."
+            if auto_save else
+            "Tap the button below to save this pass. Browsers block automatic "
+            "multi-file downloads, so each seat is saved individually.")
+    _html(f'<div class="micro" style="text-align:center;margin:-.1rem 0 1rem;">'
+          f'{hint}</div>')
     st.download_button(
         f"DOWNLOAD PASS  ·  SEAT {seat}",
         data=jpeg, file_name=filename, mime="image/jpeg",
@@ -2135,7 +1710,6 @@ def issue_pass(row: pd.Series, prices: dict[str, int]) -> None:
     if ppm < 4.0:
         st.warning(f"QR is dense ({ppm:.1f}px per module) and may not scan. "
                    "Shorten `maps_url` to a maps.app.goo.gl link.", icon="📷")
-
 
 def render_download_tab(prices: dict[str, int]) -> None:
     _html(f"""
@@ -2174,11 +1748,20 @@ def render_download_tab(prices: dict[str, int]) -> None:
         st.error(result["error"], icon="🔍")
         return
 
-    for record in result["rows"]:
+    rows = result["rows"]
+    ready = [r for r in rows if r["status"] == BOOKED]
+    if len(rows) > 1:
+        total = sum(prices[seat_tier(str(r["seat_id"]))] for r in rows)
+        _html(f'<div class="micro" style="margin:.2rem 0 1rem;">'
+              f'<span class="num">{len(rows)}</span> booking(s) on this number '
+              f'&middot; <span class="num">{len(ready)}</span> verified '
+              f'&middot; &#8377;{total:,} total</div>')
+
+    for record in rows:
         row = pd.Series(record)
         seat = str(row["seat_id"])
         if row["status"] == BOOKED:
-            issue_pass(row, prices)
+            issue_pass(row, prices, auto_save=len(ready) == 1)
         elif row["status"] == PENDING:
             _html(f"""
             <div class="notice">
@@ -2188,19 +1771,16 @@ def render_download_tab(prices: dict[str, int]) -> None:
               <p>We have received your transaction ID
                  <b style="color:{LIME_TEXT};">{row['utr_number']}</b> and are
                  confirming it with the bank. This takes up to
-                 <b>{VERIFY_HOURS} hours</b>. Check back here — nothing else is
-                 needed from you.</p>
+                 <b>{VERIFY_HOURS} hours</b>.</p>
             </div>
             """)
         else:
             st.info(f"Seat {seat} is not currently held against this number.",
                     icon="ℹ️")
 
-
 # =============================================================================
 # 13. ADMIN
 # =============================================================================
-
 
 def admin_login() -> bool:
     if st.session_state.get("is_admin"):
@@ -2220,7 +1800,6 @@ def admin_login() -> bool:
                 st.error("Incorrect password.", icon="🔒")
     return False
 
-
 def render_verification_queue(df: pd.DataFrame, prices: dict[str, int]) -> None:
     queue = df[df["status"] == PENDING].copy()
     if queue.empty:
@@ -2229,8 +1808,7 @@ def render_verification_queue(df: pd.DataFrame, prices: dict[str, int]) -> None:
     queue["rank"] = queue["seat_id"].map(SEAT_RANK)
     queue = queue.sort_values("booked_at")
 
-    st.caption(f"{len(queue)} payment(s) to verify · oldest first. "
-               "Match the UTR against your bank statement before approving.")
+    st.caption(f"{len(queue)} payment(s) to verify · oldest first.")
 
     for _, row in queue.iterrows():
         seat = str(row["seat_id"])
@@ -2250,29 +1828,22 @@ def render_verification_queue(df: pd.DataFrame, prices: dict[str, int]) -> None:
                 "UTR / Txn ID": row["utr_number"],
                 "Submitted": row["booked_at"],
             })
-            st.caption("Confirm this exact amount landed against this UTR "
-                       "before approving. Approval issues a real ticket.")
             approve, reject = st.columns(2)
-            if approve.button("APPROVE", key=f"ok_{seat}", type="primary",
-                              width="stretch"):
+            if approve.button("APPROVE", key=f"ok_{seat}", type="primary", width="stretch"):
                 ok, message = set_status(seat, BOOKED)
                 st.session_state.get("tickets", {}).pop(seat, None)
                 (st.success if ok else st.error)(message)
                 if ok:
                     st.rerun()
-            if reject.button("REJECT & RELEASE", key=f"no_{seat}",
-                             width="stretch"):
+            if reject.button("REJECT", key=f"no_{seat}", width="stretch"):
                 ok, message = set_status(seat, AVAILABLE)
                 st.session_state.get("tickets", {}).pop(seat, None)
                 (st.success if ok else st.error)(message)
                 if ok:
                     st.rerun()
 
-
 def render_pricing_controller(prices: dict[str, int]) -> None:
-    st.caption("Prices are read live from the `settings` worksheet on every "
-               "page load. Changing them here does NOT alter what past buyers "
-               "already paid — the amount is stamped onto each pass at issue.")
+    st.caption("Prices are read live from the `settings` worksheet.")
     if st.session_state.get("_prices_fallback"):
         st.warning("The `settings` worksheet could not be read — the defaults "
                    "below are in use. Saving will create/repair the sheet.",
@@ -2292,23 +1863,14 @@ def render_pricing_controller(prices: dict[str, int]) -> None:
             else:
                 try:
                     save_prices(new_prices)
-                    st.success(
-                        " · ".join(f"{t} ₹{new_prices[t]:,}" for t in TIER_ORDER),
-                        icon="✅")
+                    st.success(" · ".join(f"{t} ₹{new_prices[t]:,}" for t in TIER_ORDER), icon="✅")
                     st.rerun()
                 except Exception as exc:  # noqa: BLE001
                     st.error(f"Could not write settings: {exc}", icon="🔌")
 
-
 def render_gate_scanner(df: pd.DataFrame) -> None:
-    st.caption("Only `Booked` passes admit. A second scan of the same seat is "
-               "refused — duplicate entry is the failure that costs money at "
-               "the door.")
-
     if not HAS_CV2:
-        st.info("Camera decoding needs `opencv-python-headless`. Add it to "
-                "requirements.txt to enable QR scanning. Manual entry below "
-                "works regardless.", icon="📷")
+        st.info("Camera decoding needs `opencv-python-headless`.", icon="📷")
     else:
         shot = st.camera_input("Scan the pass QR")
         if shot is not None:
@@ -2317,33 +1879,24 @@ def render_gate_scanner(df: pd.DataFrame) -> None:
             payload, _, _ = cv2.QRCodeDetector().detectAndDecode(frame)
             seat = seat_from_payload(payload)
             if not seat:
-                st.error("No readable pass QR in that frame. Move closer, "
-                         "raise screen brightness, and hold steady.", icon="📷")
+                st.error("No readable pass QR in that frame.", icon="📷")
             else:
                 ok, message, row = check_in(seat)
-                (st.success if ok else st.error)(
-                    message, icon="✅" if ok else "⛔")
-                if row is not None:
-                    st.write({"Seat": row["seat_id"], "Name": row["name"],
-                              "Category": seat_tier(str(row["seat_id"])),
-                              "Status": row["status"]})
+                (st.success if ok else st.error)(message, icon="✅" if ok else "⛔")
 
     st.divider()
     with st.form("manual_checkin", border=False):
-        manual = st.text_input("Manual check-in — seat number",
-                               max_chars=4, placeholder="e.g. C12")
+        manual = st.text_input("Manual check-in — seat number", max_chars=4)
         if st.form_submit_button("CHECK IN", type="primary"):
             candidate = manual.strip().upper()
             if not re.fullmatch(r"[A-J]\d{1,2}", candidate):
                 st.error("Enter a seat like C12.", icon="⚠️")
             else:
                 ok, message, _ = check_in(candidate)
-                (st.success if ok else st.error)(
-                    message, icon="✅" if ok else "⛔")
+                (st.success if ok else st.error)(message, icon="✅" if ok else "⛔")
 
     admitted = df[df["checkin_time"].astype(str).str.strip() != ""]
     st.metric("Checked in so far", len(admitted))
-
 
 def attendee_table(df: pd.DataFrame, prices: dict[str, int]) -> pd.DataFrame:
     sold = df[(df["status"] == BOOKED) & (~df.apply(is_house_block, axis=1))].copy()
@@ -2359,7 +1912,6 @@ def attendee_table(df: pd.DataFrame, prices: dict[str, int]) -> pd.DataFrame:
                  "utr_number": "UTR", "booked_at": "Booked At",
                  "checkin_time": "Checked In"})
 
-
 def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
     sold = int(((df["status"] == BOOKED) & (~df.apply(is_house_block, axis=1))).sum())
     pending = int((df["status"] == PENDING).sum())
@@ -2373,7 +1925,6 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
     c.metric("Open", max(SELLABLE_SEATS - sold - pending, 0))
     d.metric("Revenue", f"₹{revenue:,}")
 
-    # Moved off the public tab — sell-through is organiser information.
     tracker(sold, pending, SELLABLE_SEATS)
 
     queue_tab, price_tab, gate_tab, roster_tab, danger_tab = st.tabs(
@@ -2390,49 +1941,28 @@ def render_admin(df: pd.DataFrame, prices: dict[str, int]) -> None:
         if table.empty:
             st.info("No confirmed attendees yet.", icon="🎫")
         else:
-            st.caption(f"{len(table)} confirmed · physical seat order. "
-                       "Use the table toolbar to search or export CSV.")
             st.dataframe(table, hide_index=True, width="stretch")
     with danger_tab:
         rows = " · ".join(f"{r}:{n}" for r, n in ROW_CAPACITIES.items())
-        st.warning(
-            f"Reset wipes every booking and re-seeds {TOTAL_SEATS} seats, "
-            f"re-applying {len(BLOCKED_SEATS)} house blocks "
-            f"({SELLABLE_SEATS} sellable).\n\nLayout — {rows}\n\nNot reversible.",
-            icon="⚠️")
-        if IMPOSSIBLE_BLOCKS:
-            st.info(
-                "These pre-block entries were skipped because those seats do "
-                f"not exist in the matrix: {', '.join(IMPOSSIBLE_BLOCKS)}. "
-                "Row D holds seats 1-10 only. Sellable capacity is 157 either "
-                "way — if Row D physically has 20 seats, set its capacity to 20 "
-                "in ROW_CAPACITIES and the blocks will apply.", icon="ℹ️")
+        st.warning(f"Reset wipes every booking and re-seeds {TOTAL_SEATS} seats.", icon="⚠️")
         confirmed = st.checkbox("I understand this deletes all bookings")
-        if st.button("RESET DATABASE", key="reset_db",
-                     disabled=not confirmed, width="stretch"):
+        if st.button("RESET DATABASE", key="reset_db", disabled=not confirmed, width="stretch"):
             with st.spinner("Re-seeding…"):
                 save_seats(blank_layout())
             for key in ("tickets", "_lookup", "_auto_dl", "_booked_phone",
-                        "_booked_seat", "_locked_seat", BOOK_STEP,
-                        SEL_ROW, SEL_SEAT):
+                        "_booked_seats", "_locked_seat", BOOK_STEP):
                 st.session_state.pop(key, None)
-            st.success(f"Reset. {TOTAL_SEATS} seats seeded, "
-                       f"{len(BLOCKED_SEATS)} blocked.", icon="✅")
+            st.success(f"Reset. {TOTAL_SEATS} seats seeded.", icon="✅")
             st.rerun()
-
 
 # =============================================================================
 # 14. ENTRY POINT
 # =============================================================================
 
-
 def main() -> None:
     st.set_page_config(page_title=f"{EVENT_NAME} — Tickets",
                        page_icon="🎭", layout="centered")
 
-    # First script run of this browser session only. Streamlit re-executes the
-    # whole script on every interaction, so an ungated intro would black the
-    # screen out again on every form submit and every st.rerun().
     intro = not st.session_state.get("_intro_played", False)
     st.session_state["_intro_played"] = True
 
@@ -2445,7 +1975,7 @@ def main() -> None:
     try:
         df = load_seats()
         st.session_state["_prices"] = load_prices()
-    except Exception as exc:  # noqa: BLE001 — surface config errors
+    except Exception as exc:  # noqa: BLE001
         st.error(f"Could not read the Google Sheet: {exc}", icon="🔌")
         banner(FOOTER_IMG, VENUE.upper())
         st.stop()
@@ -2454,14 +1984,12 @@ def main() -> None:
     prices = st.session_state["_prices"]
 
     if df.empty:
-        st.warning("Seat database is empty. Open Admin → Danger and reset it.",
-                   icon="🗄️")
+        st.warning("Seat database is empty. Open Admin → Danger and reset it.", icon="🗄️")
 
-    book_tab, download_tab, admin_tab = st.tabs(
-        ["BOOK TICKET", "DOWNLOAD TICKET", "ADMIN"])
+    book_tab, download_tab, admin_tab = st.tabs(["BOOK TICKET", "DOWNLOAD TICKET", "ADMIN"])
 
     with book_tab:
-        if st.session_state.get("_booked_seat"):
+        if st.session_state.get("_booked_seats"):
             render_pending_notice()
         else:
             render_booking(df, prices)
@@ -2473,7 +2001,6 @@ def main() -> None:
 
     st.divider()
     banner(FOOTER_IMG, VENUE.upper())
-
 
 if __name__ == "__main__":
     main()
